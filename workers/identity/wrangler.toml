@@ -1,0 +1,29 @@
+name = "infinity-os-identity"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ALLOWED_ORIGINS = "https://infinity-os.pages.dev,http://localhost:5173"
+
+# KV Namespace for session storage
+[[kv_namespaces]]
+binding = "KV"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+preview_id = "REPLACE_WITH_YOUR_PREVIEW_KV_NAMESPACE_ID"
+
+# D1 Database (optional — can use Supabase instead)
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "infinity-os"
+# database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+[secrets]
+# Set these via: wrangler secret put JWT_SECRET
+# JWT_SECRET
+# SUPABASE_URL
+# SUPABASE_SERVICE_KEY
+
+[dev]
+port = 8787
+local_protocol = "http"

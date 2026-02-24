@@ -1,25 +1,41 @@
 {
-  "name": "@trancendos/infinity-portal",
-  "version": "1.0.0",
-  "description": "Central authentication and access",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "scripts": {
-    "build": "tsc",
-    "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
-    "test": "vitest"
-  },
+  "name": "infinity-os",
+  "version": "0.1.0",
+  "description": "Infinity OS — A browser-native, AI-augmented, modular Virtual Operating System Platform",
+  "private": true,
   "author": "Trancendos",
   "license": "MIT",
-  "dependencies": {
-    "@trancendos/shared-core": "workspace:*",
-    "zod": "^3.22.4"
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
+    "turbo": "^2.0.0",
     "typescript": "^5.3.0",
-    "tsx": "^4.6.0",
-    "vitest": "^1.0.0"
+    "prettier": "^3.1.0",
+    "eslint": "^8.55.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "husky": "^8.0.0",
+    "lint-staged": "^15.2.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.12.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "workers/*",
+    "modules/*"
+  ],
+  "lint-staged": {
+    "*.{ts,tsx}": ["eslint --fix", "prettier --write"],
+    "*.{json,md,css}": ["prettier --write"]
   }
 }

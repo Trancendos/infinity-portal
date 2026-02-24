@@ -1,0 +1,24 @@
+{
+  "name": "@infinity-os/worker-identity",
+  "version": "0.1.0",
+  "description": "Infinity OS Identity Service — Cloudflare Worker",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@infinity-os/types": "workspace:*",
+    "hono": "^4.0.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0",
+    "wrangler": "^3.22.0",
+    "@cloudflare/workers-types": "^4.20231218.0",
+    "miniflare": "^3.20231218.0"
+  }
+}

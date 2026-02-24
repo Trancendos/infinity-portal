@@ -1,0 +1,1828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Infinity OS — Architecture & Transformation Blueprint</title>
+<style>
+  :root {
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #0f0f1a;
+    --bg-card: #13131f;
+    --bg-card-hover: #1a1a2e;
+    --accent-primary: #6c63ff;
+    --accent-secondary: #00d4ff;
+    --accent-tertiary: #ff6b9d;
+    --accent-green: #00ff88;
+    --accent-orange: #ff9500;
+    --accent-yellow: #ffd60a;
+    --text-primary: #f0f0ff;
+    --text-secondary: #a0a0c0;
+    --text-muted: #606080;
+    --border: #2a2a4a;
+    --border-bright: #4a4a8a;
+    --glow-purple: rgba(108,99,255,0.3);
+    --glow-cyan: rgba(0,212,255,0.3);
+    --glow-pink: rgba(255,107,157,0.3);
+    --glow-green: rgba(0,255,136,0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* Animated background */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: 
+      radial-gradient(ellipse at 20% 20%, rgba(108,99,255,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(0,212,255,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(255,107,157,0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 1400px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  /* Header */
+  .hero {
+    padding: 80px 0 60px;
+    text-align: center;
+    position: relative;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(108,99,255,0.15);
+    border: 1px solid rgba(108,99,255,0.4);
+    border-radius: 100px;
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent-primary);
+    margin-bottom: 24px;
+  }
+
+  .hero-badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--accent-green);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.5); }
+  }
+
+  .hero h1 {
+    font-size: clamp(40px, 6vw, 80px);
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #fff 0%, var(--accent-primary) 40%, var(--accent-secondary) 70%, var(--accent-tertiary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-sub {
+    font-size: 20px;
+    color: var(--text-secondary);
+    max-width: 700px;
+    margin: 0 auto 40px;
+  }
+
+  .hero-meta {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+
+  .hero-meta-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .hero-meta-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--accent-primary);
+  }
+
+  .hero-meta-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* Section styles */
+  .section { padding: 60px 0; }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .section-icon {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+
+  .section-title {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  .section-subtitle {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* Current State */
+  .current-state {
+    background: linear-gradient(135deg, rgba(255,50,50,0.08), rgba(255,100,50,0.05));
+    border: 1px solid rgba(255,80,80,0.3);
+    border-radius: 20px;
+    padding: 32px;
+    margin-bottom: 24px;
+  }
+
+  .current-state h3 {
+    color: #ff6b6b;
+    font-size: 18px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .file-tree {
+    background: rgba(0,0,0,0.4);
+    border-radius: 12px;
+    padding: 20px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+  }
+
+  .file-tree .file { color: #a0d0ff; }
+  .file-tree .empty { color: #ff6b6b; font-style: italic; }
+  .file-tree .comment { color: var(--text-muted); }
+
+  /* Architecture Layers */
+  .arch-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 40px 0;
+  }
+
+  .arch-layer {
+    border-radius: 16px;
+    padding: 24px 32px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .arch-layer::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .arch-layer:hover { transform: translateX(8px); border-color: var(--border-bright); }
+  .arch-layer:hover::before { opacity: 1; }
+
+  .layer-0 { background: linear-gradient(135deg, rgba(255,107,157,0.12), rgba(255,107,157,0.05)); border-color: rgba(255,107,157,0.3); }
+  .layer-0:hover { border-color: rgba(255,107,157,0.6); box-shadow: 0 0 30px rgba(255,107,157,0.2); }
+  .layer-0::before { background: linear-gradient(135deg, rgba(255,107,157,0.05), transparent); }
+
+  .layer-1 { background: linear-gradient(135deg, rgba(108,99,255,0.12), rgba(108,99,255,0.05)); border-color: rgba(108,99,255,0.3); }
+  .layer-1:hover { border-color: rgba(108,99,255,0.6); box-shadow: 0 0 30px rgba(108,99,255,0.2); }
+
+  .layer-2 { background: linear-gradient(135deg, rgba(0,212,255,0.12), rgba(0,212,255,0.05)); border-color: rgba(0,212,255,0.3); }
+  .layer-2:hover { border-color: rgba(0,212,255,0.6); box-shadow: 0 0 30px rgba(0,212,255,0.2); }
+
+  .layer-3 { background: linear-gradient(135deg, rgba(0,255,136,0.12), rgba(0,255,136,0.05)); border-color: rgba(0,255,136,0.3); }
+  .layer-3:hover { border-color: rgba(0,255,136,0.6); box-shadow: 0 0 30px rgba(0,255,136,0.2); }
+
+  .layer-4 { background: linear-gradient(135deg, rgba(255,149,0,0.12), rgba(255,149,0,0.05)); border-color: rgba(255,149,0,0.3); }
+  .layer-4:hover { border-color: rgba(255,149,0,0.6); box-shadow: 0 0 30px rgba(255,149,0,0.2); }
+
+  .layer-5 { background: linear-gradient(135deg, rgba(255,214,10,0.12), rgba(255,214,10,0.05)); border-color: rgba(255,214,10,0.3); }
+  .layer-5:hover { border-color: rgba(255,214,10,0.6); box-shadow: 0 0 30px rgba(255,214,10,0.2); }
+
+  .layer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .layer-title-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .layer-number {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+  }
+
+  .layer-0 .layer-number { background: rgba(255,107,157,0.2); color: var(--accent-tertiary); }
+  .layer-1 .layer-number { background: rgba(108,99,255,0.2); color: var(--accent-primary); }
+  .layer-2 .layer-number { background: rgba(0,212,255,0.2); color: var(--accent-secondary); }
+  .layer-3 .layer-number { background: rgba(0,255,136,0.2); color: var(--accent-green); }
+  .layer-4 .layer-number { background: rgba(255,149,0,0.2); color: var(--accent-orange); }
+  .layer-5 .layer-number { background: rgba(255,214,10,0.2); color: var(--accent-yellow); }
+
+  .layer-name {
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .layer-tech {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+  }
+
+  .layer-components {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .component-chip {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+  }
+
+  .component-chip:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--text-primary);
+    border-color: var(--border-bright);
+  }
+
+  /* Services Grid */
+  .services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin: 32px 0;
+  }
+
+  .service-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .service-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .service-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--border-bright);
+    background: var(--bg-card-hover);
+  }
+
+  .service-card.identity::after { background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary)); }
+  .service-card.filesystem::after { background: linear-gradient(90deg, var(--accent-green), var(--accent-secondary)); }
+  .service-card.registry::after { background: linear-gradient(90deg, var(--accent-orange), var(--accent-yellow)); }
+  .service-card.notifications::after { background: linear-gradient(90deg, var(--accent-tertiary), var(--accent-primary)); }
+  .service-card.search::after { background: linear-gradient(90deg, var(--accent-secondary), var(--accent-green)); }
+  .service-card.ai::after { background: linear-gradient(90deg, #a855f7, var(--accent-tertiary)); }
+
+  .service-icon {
+    font-size: 32px;
+    margin-bottom: 12px;
+  }
+
+  .service-name {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .service-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+
+  .service-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .service-tag {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.06);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+
+  /* Role Hierarchy */
+  .role-hierarchy {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 32px 0;
+  }
+
+  .role-card {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 24px;
+    transition: all 0.3s ease;
+  }
+
+  .role-card:hover {
+    border-color: var(--border-bright);
+    transform: translateX(6px);
+  }
+
+  .role-badge {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .role-super .role-badge { background: linear-gradient(135deg, rgba(255,214,10,0.2), rgba(255,149,0,0.2)); border: 1px solid rgba(255,214,10,0.4); }
+  .role-admin .role-badge { background: linear-gradient(135deg, rgba(108,99,255,0.2), rgba(0,212,255,0.2)); border: 1px solid rgba(108,99,255,0.4); }
+  .role-power .role-badge { background: linear-gradient(135deg, rgba(0,255,136,0.2), rgba(0,212,255,0.2)); border: 1px solid rgba(0,255,136,0.4); }
+  .role-user .role-badge { background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); border: 1px solid rgba(255,255,255,0.2); }
+
+  .role-info { flex: 1; }
+  .role-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .role-desc { font-size: 13px; color: var(--text-secondary); }
+
+  .role-perms {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 400px;
+  }
+
+  .role-perm {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.05);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+
+  /* Cost Stack */
+  .cost-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    margin: 32px 0;
+  }
+
+  .cost-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    transition: all 0.3s ease;
+  }
+
+  .cost-card:hover {
+    border-color: var(--border-bright);
+    transform: translateY(-2px);
+  }
+
+  .cost-provider {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .cost-name {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .cost-price {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--accent-green);
+  }
+
+  .cost-service {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+
+  .cost-limits {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .cost-limit {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .cost-limit::before {
+    content: '✓';
+    color: var(--accent-green);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  /* Compliance Grid */
+  .compliance-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    margin: 32px 0;
+  }
+
+  .compliance-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+  }
+
+  .compliance-card:hover {
+    border-color: var(--border-bright);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+
+  .compliance-icon { font-size: 36px; margin-bottom: 12px; }
+  .compliance-name { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .compliance-desc { font-size: 12px; color: var(--text-secondary); }
+
+  .compliance-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 100px;
+    background: rgba(0,255,136,0.1);
+    color: var(--accent-green);
+    border: 1px solid rgba(0,255,136,0.3);
+  }
+
+  /* Roadmap */
+  .roadmap {
+    position: relative;
+    margin: 40px 0;
+  }
+
+  .roadmap::before {
+    content: '';
+    position: absolute;
+    left: 24px;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary), var(--accent-green), var(--accent-orange), #a855f7, var(--accent-tertiary), var(--accent-yellow), #00ff88);
+  }
+
+  .roadmap-item {
+    display: flex;
+    gap: 32px;
+    margin-bottom: 32px;
+    position: relative;
+  }
+
+  .roadmap-dot {
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+    border: 2px solid var(--border);
+  }
+
+  .roadmap-content {
+    flex: 1;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 24px;
+    transition: all 0.3s ease;
+  }
+
+  .roadmap-content:hover {
+    border-color: var(--border-bright);
+    transform: translateX(4px);
+  }
+
+  .roadmap-phase {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+
+  .roadmap-title {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .roadmap-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .roadmap-timeline {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Tech Stack */
+  .tech-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 32px 0;
+  }
+
+  .tech-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.2s ease;
+  }
+
+  .tech-item:hover {
+    border-color: var(--border-bright);
+    background: var(--bg-card-hover);
+  }
+
+  .tech-emoji { font-size: 24px; }
+  .tech-info { flex: 1; min-width: 0; }
+  .tech-name { font-size: 13px; font-weight: 600; }
+  .tech-role { font-size: 11px; color: var(--text-muted); }
+
+  /* Monorepo Structure */
+  .mono-tree {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    overflow-x: auto;
+  }
+
+  .mono-tree .dir { color: var(--accent-secondary); font-weight: 700; }
+  .mono-tree .file { color: var(--text-secondary); }
+  .mono-tree .comment { color: var(--text-muted); font-style: italic; }
+  .mono-tree .highlight { color: var(--accent-green); }
+
+  /* Divider */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 40px 0;
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    margin: 40px 0;
+  }
+
+  .stat-item {
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 4px;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 60px 0 40px;
+    color: var(--text-muted);
+    font-size: 13px;
+    border-top: 1px solid var(--border);
+    margin-top: 60px;
+  }
+
+  .footer-logo {
+    font-size: 28px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 12px;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+
+  .tab {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-muted);
+    border: none;
+    background: none;
+  }
+
+  .tab.active {
+    background: var(--accent-primary);
+    color: white;
+  }
+
+  .tab:hover:not(.active) {
+    background: rgba(255,255,255,0.06);
+    color: var(--text-primary);
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-primary); }
+  ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+
+  /* Nav */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,10,15,0.9);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 0;
+  }
+
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .nav-logo {
+    font-size: 18px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .nav-link {
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+  }
+
+  .nav-link:hover {
+    background: rgba(255,255,255,0.06);
+    color: var(--text-primary);
+  }
+
+  /* Highlight box */
+  .highlight-box {
+    background: linear-gradient(135deg, rgba(108,99,255,0.1), rgba(0,212,255,0.05));
+    border: 1px solid rgba(108,99,255,0.3);
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin: 24px 0;
+  }
+
+  .highlight-box h4 {
+    color: var(--accent-primary);
+    font-size: 15px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .highlight-box p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  /* Warning box */
+  .warning-box {
+    background: linear-gradient(135deg, rgba(255,80,80,0.1), rgba(255,149,0,0.05));
+    border: 1px solid rgba(255,80,80,0.3);
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin: 24px 0;
+  }
+
+  .warning-box h4 {
+    color: #ff6b6b;
+    font-size: 15px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .warning-box p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .hero { padding: 40px 0 30px; }
+    .services-grid { grid-template-columns: 1fr; }
+    .cost-grid { grid-template-columns: 1fr; }
+    .compliance-grid { grid-template-columns: repeat(2, 1fr); }
+    .tech-grid { grid-template-columns: repeat(2, 1fr); }
+    .role-perms { display: none; }
+    .roadmap::before { left: 20px; }
+    .roadmap-dot { width: 42px; height: 42px; }
+  }
+</style>
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="nav">
+  <div class="container">
+    <div class="nav-inner">
+      <div class="nav-logo">∞ Infinity OS</div>
+      <div class="nav-links">
+        <a class="nav-link" href="#current">Current State</a>
+        <a class="nav-link" href="#architecture">Architecture</a>
+        <a class="nav-link" href="#services">Services</a>
+        <a class="nav-link" href="#roles">Roles</a>
+        <a class="nav-link" href="#cost">Zero Cost</a>
+        <a class="nav-link" href="#compliance">Compliance</a>
+        <a class="nav-link" href="#roadmap">Roadmap</a>
+        <a class="nav-link" href="#stack">Tech Stack</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<div class="container">
+  <div class="hero">
+    <div class="hero-badge">2060 Modular Standard · Zero Cost · Fully Compliant</div>
+    <h1>Infinity OS</h1>
+    <p class="hero-sub">A browser-native, AI-augmented, modular Virtual Operating System Platform — transformed from a 4-file stub into a world-class platform</p>
+    <div class="hero-meta">
+      <div class="hero-meta-item">
+        <span class="hero-meta-value">$0</span>
+        <span class="hero-meta-label">Monthly Cost</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="hero-meta-value">6</span>
+        <span class="hero-meta-label">Architecture Layers</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="hero-meta-value">8</span>
+        <span class="hero-meta-label">Roadmap Phases</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="hero-meta-value">100%</span>
+        <span class="hero-meta-label">Compliance Coverage</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="hero-meta-value">2060</span>
+        <span class="hero-meta-label">Future-Proof Standard</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Current State -->
+  <div id="current" class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background: rgba(255,80,80,0.15); border: 1px solid rgba(255,80,80,0.3);">🔥</div>
+      <div>
+        <div class="section-title">Current State — The Train Wreck</div>
+        <div class="section-subtitle">What was delivered vs. what was promised</div>
+      </div>
+    </div>
+
+    <div class="warning-box">
+      <h4>⚠️ Critical Assessment</h4>
+      <p>The existing repository contains a single TypeScript class with 3 methods, no UI, no database, no authentication, no file system, and a broken dependency reference to <code>@trancendos/shared-core</code> that doesn't exist. This is not a portal — it's a placeholder that cannot even be installed without errors.</p>
+    </div>
+
+    <div class="current-state">
+      <h3>📁 Current Repository Structure (4 files total)</h3>
+      <div class="file-tree">
+        <div>infinity-portal/</div>
+        <div>&nbsp;&nbsp;├── <span class="file">README.md</span> <span class="comment">— "Central authentication and access"</span></div>
+        <div>&nbsp;&nbsp;├── <span class="file">package.json</span> <span class="comment">— references @trancendos/shared-core (MISSING)</span></div>
+        <div>&nbsp;&nbsp;├── <span class="file">tsconfig.json</span> <span class="comment">— standard TypeScript config</span></div>
+        <div>&nbsp;&nbsp;└── src/</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── <span class="file">index.ts</span> <span class="comment">— InfinityPortalService { start(), stop(), getStatus() }</span></div>
+        <div>&nbsp;</div>
+        <div><span class="empty">✗ No frontend</span></div>
+        <div><span class="empty">✗ No database schema</span></div>
+        <div><span class="empty">✗ No authentication implementation</span></div>
+        <div><span class="empty">✗ No file system</span></div>
+        <div><span class="empty">✗ No API endpoints</span></div>
+        <div><span class="empty">✗ No deployment config</span></div>
+        <div><span class="empty">✗ No tests</span></div>
+        <div><span class="empty">✗ Broken workspace dependency</span></div>
+      </div>
+    </div>
+
+    <div class="highlight-box">
+      <h4>🎯 The Vision That Was Intended</h4>
+      <p>A Virtual Operating System Platform — a browser-delivered environment with a desktop metaphor, kernel-equivalent process manager, virtual file system, user/admin roles, installable applications, permission model, real-time collaboration, and persistent state. This is achievable. This document shows exactly how.</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Architecture -->
+  <div id="architecture" class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background: rgba(108,99,255,0.15); border: 1px solid rgba(108,99,255,0.3);">🏗️</div>
+      <div>
+        <div class="section-title">Infinity OS Architecture — 6 Layers</div>
+        <div class="section-subtitle">A complete OS stack delivered through the browser</div>
+      </div>
+    </div>
+
+    <div class="arch-stack">
+
+      <div class="arch-layer layer-5">
+        <div class="layer-header">
+          <div class="layer-title-group">
+            <div class="layer-number">L5</div>
+            <div>
+              <div class="layer-name">App Store — Infinity Market</div>
+            </div>
+          </div>
+          <div class="layer-tech">Module Distribution Platform</div>
+        </div>
+        <div class="layer-components">
+          <span class="component-chip">Developer Submission Pipeline</span>
+          <span class="component-chip">Module Signing & Verification</span>
+          <span class="component-chip">Ratings & Reviews</span>
+          <span class="component-chip">Version History</span>
+          <span class="component-chip">Security Scanning</span>
+          <span class="component-chip">Category Browser</span>
+          <span class="component-chip">One-Click Install</span>
+        </div>
+      </div>
+
+      <div class="arch-layer layer-4">
+        <div class="layer-header">
+          <div class="layer-title-group">
+            <div class="layer-number">L4</div>
+            <div>
+              <div class="layer-name">Data Layer — Persistence & Storage</div>
+            </div>
+          </div>
+          <div class="layer-tech">Supabase + Cloudflare R2 + KV</div>
+        </div>
+        <div class="layer-components">
+          <span class="component-chip">PostgreSQL (Supabase)</span>
+          <span class="component-chip">Row Level Security</span>
+          <span class="component-chip">Object Storage (R2)</span>
+          <span class="component-chip">Edge Cache (KV)</span>
+          <span class="component-chip">Real-time Subscriptions</span>
+          <span class="component-chip">Full-text Search</span>
+          <span class="component-chip">Vector Search (pgvector)</span>
+          <span class="component-chip">File Versioning</span>
+          <span class="component-chip">Audit Logs</span>
+        </div>
+      </div>
+
+      <div class="arch-layer layer-3">
+        <div class="layer-header">
+          <div class="layer-title-group">
+            <div class="layer-number">L3</div>
+            <div>
+              <div class="layer-name">Module System — Micro-Frontend Applications</div>
+            </div>
+          </div>
+          <div class="layer-tech">Module Federation + ES Modules</div>
+        </div>
+        <div class="layer-components">
+          <span class="component-chip">File Manager</span>
+          <span class="component-chip">Text Editor</span>
+          <span class="component-chip">Terminal</span>
+          <span class="component-chip">Calendar</span>
+          <span class="component-chip">Notes</span>
+          <span class="component-chip">Settings</span>
+          <span class="component-chip">App Store</span>
+          <span class="component-chip">Admin Dashboard</span>
+          <span class="component-chip">infinity.manifest.json</span>
+          <span class="component-chip">Sandboxed Execution</span>
+          <span class="component-chip">CSP Enforcement</span>
+        </div>
+      </div>
+
+      <div class="arch-layer layer-2">
+        <div class="layer-header">
+          <div class="layer-title-group">
+            <div class="layer-number">L2</div>
+            <div>
+              <div class="layer-name">Shell — Desktop Environment</div>
+            </div>
+          </div>
+          <div class="layer-tech">React 18 + Vite + PWA + Tailwind</div>
+        </div>
+        <div class="layer-components">
+          <span class="component-chip">Window Manager</span>
+          <span class="component-chip">Desktop Canvas</span>
+          <span class="component-chip">Taskbar</span>
+          <span class="component-chip">Notification Centre</span>
+          <span class="component-chip">System Tray</span>
+          <span class="component-chip">Universal Search</span>
+          <span class="component-chip">Widget Grid</span>
+          <span class="component-chip">Theme Engine</span>
+          <span class="component-chip">Infinity Design System</span>
+          <span class="component-chip">WCAG 2.2 AA</span>
+          <span class="component-chip">PWA Installable</span>
+        </div>
+      </div>
+
+      <div class="arch-layer layer-1">
+        <div class="layer-header">
+          <div class="layer-title-group">
+            <div class="layer-number">L1</div>
+            <div>
+              <div class="layer-name">Core Services — Edge Computing Layer</div>
+            </div>
+          </div>
+          <div class="layer-tech">Cloudflare Workers + Hono.js</div>
+        </div>
+        <div class="layer-components">
+          <span class="component-chip">Identity Service</span>
+          <span class="component-chip">File System Service</span>
+          <span class="component-chip">Module Registry</span>
+          <span class="component-chip">Notification Service</span>
+          <span class="component-chip">Search Service</span>
+          <span class="component-chip">AI Orchestration</span>
+          <span class="component-chip">JWT Auth</span>
+          <span class="component-chip">WebAuthn/Passkeys</span>
+          <span class="component-chip">TOTP MFA</span>
+          <span class="component-chip">300+ Edge Locations</span>
+        </div>
+      </div>
+
+      <div class="arch-layer layer-0">
+        <div class="layer-header">
+          <div class="layer-title-group">
+            <div class="layer-number">L0</div>
+            <div>
+              <div class="layer-name">Infinity Kernel — Service Worker + WebAssembly</div>
+            </div>
+          </div>
+          <div class="layer-tech">Service Worker + WASM + TypeScript</div>
+        </div>
+        <div class="layer-components">
+          <span class="component-chip">Process API</span>
+          <span class="component-chip">IPC Message Bus</span>
+          <span class="component-chip">Storage API</span>
+          <span class="component-chip">Permission API</span>
+          <span class="component-chip">Event Bus</span>
+          <span class="component-chip">Module Lifecycle</span>
+          <span class="component-chip">Network Interception</span>
+          <span class="component-chip">Offline Support</span>
+          <span class="component-chip">WASM Crypto</span>
+          <span class="component-chip">WASM Compression</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-item">
+        <div class="stat-value">300+</div>
+        <div class="stat-label">Edge Locations</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">&lt;10ms</div>
+        <div class="stat-label">API Response Time</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">50K+</div>
+        <div class="stat-label">Free MAU (Supabase)</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">100K</div>
+        <div class="stat-label">Free Req/Day (CF)</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">10GB</div>
+        <div class="stat-label">Free File Storage</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">∞</div>
+        <div class="stat-label">Bandwidth (CF Pages)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Core Services -->
+  <div id="services" class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background: rgba(0,212,255,0.15); border: 1px solid rgba(0,212,255,0.3);">⚙️</div>
+      <div>
+        <div class="section-title">Core Services — The OS Executive Layer</div>
+        <div class="section-subtitle">Six Cloudflare Workers powering the entire platform</div>
+      </div>
+    </div>
+
+    <div class="services-grid">
+      <div class="service-card identity">
+        <div class="service-icon">🔐</div>
+        <div class="service-name">Identity Service</div>
+        <div class="service-desc">Complete authentication and authorisation system with OAuth 2.0 PKCE, WebAuthn passkeys, TOTP MFA, JWT management, and continuous behavioural biometric re-authentication.</div>
+        <div class="service-tags">
+          <span class="service-tag">OAuth 2.0 PKCE</span>
+          <span class="service-tag">WebAuthn</span>
+          <span class="service-tag">TOTP MFA</span>
+          <span class="service-tag">JWT 15min</span>
+          <span class="service-tag">Supabase Auth</span>
+          <span class="service-tag">Zero Trust</span>
+        </div>
+      </div>
+
+      <div class="service-card filesystem">
+        <div class="service-icon">📁</div>
+        <div class="service-name">File System Service</div>
+        <div class="service-desc">Virtual file system with Unix-like permissions, ACL support, file versioning (100 versions), real-time collaborative editing, full-text search, and multi-backend storage abstraction.</div>
+        <div class="service-tags">
+          <span class="service-tag">Unix Permissions</span>
+          <span class="service-tag">ACL</span>
+          <span class="service-tag">Versioning</span>
+          <span class="service-tag">Real-time Sync</span>
+          <span class="service-tag">Cloudflare R2</span>
+          <span class="service-tag">Full-text Search</span>
+        </div>
+      </div>
+
+      <div class="service-card registry">
+        <div class="service-icon">📦</div>
+        <div class="service-name">Module Registry</div>
+        <div class="service-desc">Application lifecycle management with manifest validation, dependency resolution, atomic installation, semantic versioning, module signing verification, and permission scope enforcement.</div>
+        <div class="service-tags">
+          <span class="service-tag">Manifest Validation</span>
+          <span class="service-tag">Semver</span>
+          <span class="service-tag">Atomic Install</span>
+          <span class="service-tag">Code Signing</span>
+          <span class="service-tag">Dep Resolution</span>
+        </div>
+      </div>
+
+      <div class="service-card notifications">
+        <div class="service-icon">🔔</div>
+        <div class="service-name">Notification Service</div>
+        <div class="service-desc">Unified notification delivery across in-app, Web Push, and email channels. Real-time delivery via Supabase WebSockets, persistent storage, and user preference management.</div>
+        <div class="service-tags">
+          <span class="service-tag">Web Push</span>
+          <span class="service-tag">In-App</span>
+          <span class="service-tag">Email (Resend)</span>
+          <span class="service-tag">WebSockets</span>
+          <span class="service-tag">Preferences</span>
+        </div>
+      </div>
+
+      <div class="service-card search">
+        <div class="service-icon">🔍</div>
+        <div class="service-name">Search Service</div>
+        <div class="service-desc">Universal search across all OS content — files, applications, users, settings, and module-specific content. Ranked by relevance, recency, and interaction history with semantic vector search.</div>
+        <div class="service-tags">
+          <span class="service-tag">Full-text</span>
+          <span class="service-tag">Semantic (pgvector)</span>
+          <span class="service-tag">Cross-module</span>
+          <span class="service-tag">Ranked Results</span>
+          <span class="service-tag">Real-time</span>
+        </div>
+      </div>
+
+      <div class="service-card ai">
+        <div class="service-icon">🤖</div>
+        <div class="service-name">AI Orchestration</div>
+        <div class="service-desc">Privacy-preserving AI layer using Cloudflare AI Workers. Natural language interfaces, intelligent suggestions, automated workflows, anomaly detection, and predictive resource management.</div>
+        <div class="service-tags">
+          <span class="service-tag">CF AI Workers</span>
+          <span class="service-tag">NL Search</span>
+          <span class="service-tag">Anomaly Detection</span>
+          <span class="service-tag">Privacy-first</span>
+          <span class="service-tag">Edge AI</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Roles -->
+  <div id="roles" class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background: rgba(255,214,10,0.15); border: 1px solid rgba(255,214,10,0.3);">👥</div>
+      <div>
+        <div class="section-title">Admin & User Role Hierarchy</div>
+        <div class="section-subtitle">Four-tier RBAC with zero-trust enforcement at every layer</div>
+      </div>
+    </div>
+
+    <div class="role-hierarchy">
+      <div class="role-card role-super">
+        <div class="role-badge">👑</div>
+        <div class="role-info">
+          <div class="role-name">Super Admin — Platform Owner (Trancendos)</div>
+          <div class="role-desc">Unrestricted platform access. Manages all organisations, approves App Store submissions, configures global settings, accesses all audit logs.</div>
+        </div>
+        <div class="role-perms">
+          <span class="role-perm">All Permissions</span>
+          <span class="role-perm">App Store Approval</span>
+          <span class="role-perm">Global Config</span>
+          <span class="role-perm">All Orgs</span>
+          <span class="role-perm">Platform Audit</span>
+        </div>
+      </div>
+
+      <div class="role-card role-admin">
+        <div class="role-badge">🛡️</div>
+        <div class="role-info">
+          <div class="role-name">Organisation Admin</div>
+          <div class="role-desc">Manages a specific organisation's Infinity OS instance. User management, module control, billing, org-wide settings, and security configuration.</div>
+        </div>
+        <div class="role-perms">
+          <span class="role-perm">User Management</span>
+          <span class="role-perm">Module Control</span>
+          <span class="role-perm">Org Settings</span>
+          <span class="role-perm">Audit Logs</span>
+          <span class="role-perm">Storage Quotas</span>
+        </div>
+      </div>
+
+      <div class="role-card role-power">
+        <div class="role-badge">⚡</div>
+        <div class="role-info">
+          <div class="role-name">Power User</div>
+          <div class="role-desc">Elevated permissions within an organisation. Can install modules, create shared workspaces, manage team files, and access advanced features.</div>
+        </div>
+        <div class="role-perms">
+          <span class="role-perm">Install Modules</span>
+          <span class="role-perm">Shared Workspaces</span>
+          <span class="role-perm">Team Files</span>
+          <span class="role-perm">Advanced Features</span>
+        </div>
+      </div>
+
+      <div class="role-card role-user">
+        <div class="role-badge">👤</div>
+        <div class="role-info">
+          <div class="role-name">Standard User</div>
+          <div class="role-desc">Default role. Uses installed modules, manages personal files, customises personal workspace, installs admin-approved modules.</div>
+        </div>
+        <div class="role-perms">
+          <span class="role-perm">Personal Files</span>
+          <span class="role-perm">Approved Modules</span>
+          <span class="role-perm">Personal Settings</span>
+          <span class="role-perm">Notifications</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Zero Cost Stack -->
+  <div id="cost" class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background: rgba(0,255,136,0.15); border: 1px solid rgba(0,255,136,0.3);">💰</div>
+      <div>
+        <div class="section-title">Zero-Cost Infrastructure Stack</div>
+        <div class="section-subtitle">$0/month — forever. Every component on a generous free tier.</div>
+      </div>
+    </div>
+
+    <div class="highlight-box">
+      <h4>💡 Total Monthly Infrastructure Cost: $0.00</h4>
+      <p>The entire Infinity OS platform — frontend hosting, edge computing, database, file storage, authentication, email, CI/CD, monitoring, and AI — operates within the free tiers of best-in-class providers. When scale demands it, the entire platform can support 100,000 active users for under $30/month.</p>
+    </div>
+
+    <div class="cost-grid">
+      <div class="cost-card">
+        <div class="cost-provider">
+          <div class="cost-name">☁️ Cloudflare Pages</div>
+          <div class="cost-price">$0</div>
+        </div>
+        <div class="cost-service">Frontend Hosting & CDN</div>
+        <div class="cost-limits">
+          <div class="cost-limit">Unlimited bandwidth</div>
+          <div class="cost-limit">Unlimited requests</div>
+          <div class="cost-limit">500 builds/month</div>
+          <div class="cost-limit">Custom domains + HTTPS</div>
+          <div class="cost-limit">300+ edge locations</div>
+        </div>
+      </div>
+
+      <div class="cost-card">
+        <div class="cost-provider">
+          <div class="cost-name">⚡ Cloudflare Workers</div>
+          <div class="cost-price">$0</div>
+        </div>
+        <div class="cost-service">Edge Computing (All 6 Services)</div>
+        <div class="cost-limits">
+          <div class="cost-limit">100,000 req/day</div>
+          <div class="cost-limit">10ms CPU per request</div>
+          <div class="cost-limit">KV, R2, D1 access</div>
+          <div class="cost-limit">AI Workers included</div>
+          <div class="cost-limit">Durable Objects</div>
+        </div>
+      </div>
+
+      <div class="cost-card">
+        <div class="cost-provider">
+          <div class="cost-name">🗄️ Supabase</div>
+          <div class="cost-price">$0</div>
+        </div>
+        <div class="cost-service">Database, Auth & Realtime</div>
+        <div class="cost-limits">
+          <div class="cost-limit">500 MB PostgreSQL</div>
+          <div class="cost-limit">50,000 MAU</div>
+          <div class="cost-limit">Unlimited API requests</div>
+          <div class="cost-limit">Real-time subscriptions</div>
+          <div class="cost-limit">Row Level Security</div>
+        </div>
+      </div>
+
+      <div class="cost-card">
+        <div class="cost-provider">
+          <div class="cost-name">🪣 Cloudflare R2</div>
+          <div class="cost-price">$0</div>
+        </div>
+        <div class="cost-service">Object Storage (Files & Assets)</div>
+        <div class="cost-limits">
+          <div class="cost-limit">10 GB storage</div>
+          <div class="cost-limit">1M Class A ops/month</div>
+          <div class="cost-limit">10M Class B ops/month</div>
+          <div class="cost-limit">Zero egress fees</div>
+          <div class="cost-limit">S3-compatible API</div>
+        </div>
+      </div>
+
+      <div class="cost-card">
+        <div class="cost-provider">
+          <div class="cost-name">🔑 Cloudflare KV</div>
+          <div class="cost-price">$0</div>
+        </div>
+        <div class="cost-service">Edge Key-Value Cache</div>
+        <div class="cost-limits">
+          <div class="cost-limit">100,000 reads/day</div>
+          <div class="cost-limit">1,000 writes/day</div>
+          <div class="cost-limit">1 GB storage</div>
+          <div class="cost-limit">Global edge cache</div>
+          <div class="cost-limit">Sub-ms read latency</div>
+        </div>
+      </div>
+
+      <div class="cost-card">
+        <div class="cost-provider">
+          <div class="cost-name">📧 Resend</div>
+          <div class="cost-price">$0</div>
+        </div>
+        <div class="cost-service">Transactional Email</div>
+        <div class="cost-limits">
+          <div class="cost-limit">3,000 emails/month</div>
+          <div class="cost-limit">100 emails/day</div>
+          <div class="cost-limit">Custom domain</div>
+          <div class="cost-limit">React Email templates</div>
+          <div class="cost-limit">Delivery analytics</div>
+        </div>
+      </div>
+
+      <div class="cost-card">
+        <div class="cost-provider">
+          <div class="cost-name">🔄 GitHub Actions</div>
+          <div class="cost-price">$0</div>
+        </div>
+        <div class="cost-service">CI/CD Pipeline</div>
+        <div class="cost-limits">
+          <div class="cost-limit">2,000 min/month</div>
+          <div class="cost-limit">Automated testing</div>
+          <div class="cost-limit">Auto deployment</div>
+          <div class="cost-limit">Dependabot security</div>
+          <div class="cost-limit">Branch protection</div>
+        </div>
+      </div>
+
+      <div class="cost-card">
+        <div class="cost-provider">
+          <div class="cost-name">🤖 Cloudflare AI</div>
+          <div class="cost-price">$0</div>
+        </div>
+        <div class="cost-service">AI Features (50+ Models)</div>
+        <div class="cost-limits">
+          <div class="cost-limit">10,000 neurons/day</div>
+          <div class="cost-limit">Text generation</div>
+          <div class="cost-limit">Image classification</div>
+          <div class="cost-limit">Speech recognition</div>
+          <div class="cost-limit">Translation</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Compliance -->
+  <div id="compliance" class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background: rgba(0,212,255,0.15); border: 1px solid rgba(0,212,255,0.3);">⚖️</div>
+      <div>
+        <div class="section-title">Global Compliance & Legal Framework</div>
+        <div class="section-subtitle">Compliant by design — not by retrofit</div>
+      </div>
+    </div>
+
+    <div class="compliance-grid">
+      <div class="compliance-card">
+        <div class="compliance-icon">🇪🇺</div>
+        <div class="compliance-name">GDPR</div>
+        <div class="compliance-desc">All 8 data subject rights implemented. Consent management, DPA available, EU data residency option.</div>
+        <div class="compliance-status">✓ Compliant by Design</div>
+      </div>
+
+      <div class="compliance-card">
+        <div class="compliance-icon">🇺🇸</div>
+        <div class="compliance-name">CCPA</div>
+        <div class="compliance-desc">Do Not Sell option, privacy notice at collection, right to know/delete/opt-out for California users.</div>
+        <div class="compliance-status">✓ Compliant by Design</div>
+      </div>
+
+      <div class="compliance-card">
+        <div class="compliance-icon">🔒</div>
+        <div class="compliance-name">SOC 2 Type II</div>
+        <div class="compliance-desc">All 5 Trust Service Criteria covered: Security, Availability, Processing Integrity, Confidentiality, Privacy.</div>
+        <div class="compliance-status">✓ Audit-Ready</div>
+      </div>
+
+      <div class="compliance-card">
+        <div class="compliance-icon">🏆</div>
+        <div class="compliance-name">ISO 27001</div>
+        <div class="compliance-desc">ISMS aligned with ISO 27001:2022. Asset management, access control, cryptography, incident management.</div>
+        <div class="compliance-status">✓ Aligned</div>
+      </div>
+
+      <div class="compliance-card">
+        <div class="compliance-icon">♿</div>
+        <div class="compliance-name">WCAG 2.2 AA</div>
+        <div class="compliance-desc">Full accessibility compliance. Keyboard navigation, screen reader support, colour contrast, ARIA live regions.</div>
+        <div class="compliance-status">✓ Compliant</div>
+      </div>
+
+      <div class="compliance-card">
+        <div class="compliance-icon">🏥</div>
+        <div class="compliance-name">HIPAA Ready</div>
+        <div class="compliance-desc">Architecture supports HIPAA compliance for healthcare modules. BAA available, PHI encryption, audit trails.</div>
+        <div class="compliance-status">✓ Architecture Ready</div>
+      </div>
+
+      <div class="compliance-card">
+        <div class="compliance-icon">🛡️</div>
+        <div class="compliance-name">Zero Trust</div>
+        <div class="compliance-desc">Never trust, always verify. Continuous re-authentication, behavioural biometrics, micro-segmentation.</div>
+        <div class="compliance-status">✓ Native Implementation</div>
+      </div>
+
+      <div class="compliance-card">
+        <div class="compliance-icon">🔐</div>
+        <div class="compliance-name">Post-Quantum</div>
+        <div class="compliance-desc">CRYSTALS-Kyber, CRYSTALS-Dilithium, SPHINCS+ ready. Future-proof cryptography for the quantum era.</div>
+        <div class="compliance-status">✓ Phase 7 Roadmap</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Roadmap -->
+  <div id="roadmap" class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background: rgba(255,149,0,0.15); border: 1px solid rgba(255,149,0,0.3);">🗺️</div>
+      <div>
+        <div class="section-title">2025–2060 Transformation Roadmap</div>
+        <div class="section-subtitle">8 phases from foundation to neural interface</div>
+      </div>
+    </div>
+
+    <div class="roadmap">
+      <div class="roadmap-item">
+        <div class="roadmap-dot" style="background: rgba(108,99,255,0.2); border-color: var(--accent-primary);">🏗️</div>
+        <div class="roadmap-content">
+          <div class="roadmap-phase" style="color: var(--accent-primary);">Phase 1 — Foundation</div>
+          <div class="roadmap-title">Core OS: Shell, Kernel, Identity, File System</div>
+          <div class="roadmap-desc">Functional Infinity OS with core desktop shell, Service Worker kernel, identity service, file system, and three built-in modules (text editor, file manager, settings). Establishes the zero-cost stack and architectural foundation.</div>
+          <div class="roadmap-timeline">📅 Months 1–3</div>
+        </div>
+      </div>
+
+      <div class="roadmap-item">
+        <div class="roadmap-dot" style="background: rgba(0,212,255,0.2); border-color: var(--accent-secondary);">🏪</div>
+        <div class="roadmap-content">
+          <div class="roadmap-phase" style="color: var(--accent-secondary);">Phase 2 — Ecosystem</div>
+          <div class="roadmap-title">App Store, Real-time Collaboration & Admin Dashboard</div>
+          <div class="roadmap-desc">Launch Infinity Market (App Store), implement real-time co-editing and shared workspaces, deliver the full Admin Dashboard with user/module/storage/security management panels.</div>
+          <div class="roadmap-timeline">📅 Months 4–6</div>
+        </div>
+      </div>
+
+      <div class="roadmap-item">
+        <div class="roadmap-dot" style="background: rgba(0,255,136,0.2); border-color: var(--accent-green);">🤖</div>
+        <div class="roadmap-content">
+          <div class="roadmap-phase" style="color: var(--accent-green);">Phase 3 — Intelligence</div>
+          <div class="roadmap-title">AI-Native Platform Integration</div>
+          <div class="roadmap-desc">Integrate AI Orchestration Service with natural language file search, intelligent content suggestions, automated workflow creation, anomaly detection, and predictive resource management via Cloudflare AI Workers.</div>
+          <div class="roadmap-timeline">📅 Months 7–12</div>
+        </div>
+      </div>
+
+      <div class="roadmap-item">
+        <div class="roadmap-dot" style="background: rgba(255,149,0,0.2); border-color: var(--accent-orange);">🧩</div>
+        <div class="roadmap-content">
+          <div class="roadmap-phase" style="color: var(--accent-orange);">Phase 4 — Developer Platform</div>
+          <div class="roadmap-title">Public SDK, Developer Portal & Module Certification</div>
+          <div class="roadmap-desc">Open Infinity OS to third-party developers with a public TypeScript SDK, developer portal, module certification programme, and comprehensive API documentation. Creates the network effects for self-sustaining growth.</div>
+          <div class="roadmap-timeline">📅 Year 2</div>
+        </div>
+      </div>
+
+      <div class="roadmap-item">
+        <div class="roadmap-dot" style="background: rgba(168,85,247,0.2); border-color: #a855f7;">🥽</div>
+        <div class="roadmap-content">
+          <div class="roadmap-phase" style="color: #a855f7;">Phase 5 — Spatial Computing</div>
+          <div class="roadmap-title">WebXR, Voice & Gesture Interfaces</div>
+          <div class="roadmap-desc">Extend Infinity OS to spatial computing environments through WebXR for VR/AR headsets, voice interfaces via Web Speech API, and gesture interfaces through MediaPipe hand tracking. Anticipates the 2030s computing paradigm shift.</div>
+          <div class="roadmap-timeline">📅 Years 3–5</div>
+        </div>
+      </div>
+
+      <div class="roadmap-item">
+        <div class="roadmap-dot" style="background: rgba(255,107,157,0.2); border-color: var(--accent-tertiary);">🌐</div>
+        <div class="roadmap-content">
+          <div class="roadmap-phase" style="color: var(--accent-tertiary);">Phase 6 — Decentralisation</div>
+          <div class="roadmap-title">Self-Hosting, Federation & Data Sovereignty</div>
+          <div class="roadmap-desc">Optional decentralisation allowing users to self-host their Infinity OS instance, federate with other instances through ActivityPub-compatible protocol, and store data in their own Cloudflare account. Provider-independent resilience.</div>
+          <div class="roadmap-timeline">📅 Years 5–10</div>
+        </div>
+      </div>
+
+      <div class="roadmap-item">
+        <div class="roadmap-dot" style="background: rgba(255,214,10,0.2); border-color: var(--accent-yellow);">⚛️</div>
+        <div class="roadmap-content">
+          <div class="roadmap-phase" style="color: var(--accent-yellow);">Phase 7 — Quantum Readiness</div>
+          <div class="roadmap-title">Post-Quantum Cryptography Migration</div>
+          <div class="roadmap-desc">Migrate all cryptographic operations to NIST-standardised post-quantum algorithms: CRYSTALS-Kyber for key encapsulation, CRYSTALS-Dilithium for digital signatures, SPHINCS+ for hash-based signatures. Quantum-secure forever.</div>
+          <div class="roadmap-timeline">📅 Years 10–15</div>
+        </div>
+      </div>
+
+      <div class="roadmap-item">
+        <div class="roadmap-dot" style="background: rgba(0,255,136,0.2); border-color: var(--accent-green);">🧠</div>
+        <div class="roadmap-content">
+          <div class="roadmap-phase" style="color: var(--accent-green);">Phase 8 — Neural Interface</div>
+          <div class="roadmap-title">Brain-Computer Interface & The 2060 Vision</div>
+          <div class="roadmap-desc">Implement brain-computer interface support through the emerging Web Neural Interface API (W3C research phase). Positions Infinity OS as the operating system of the post-screen era — where the interface is thought rather than typed or clicked.</div>
+          <div class="roadmap-timeline">📅 Years 15–35 (2040–2060)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Tech Stack -->
+  <div id="stack" class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background: rgba(255,107,157,0.15); border: 1px solid rgba(255,107,157,0.3);">🛠️</div>
+      <div>
+        <div class="section-title">Complete Technology Stack</div>
+        <div class="section-subtitle">Every tool chosen for zero cost, maximum capability, and 2060 longevity</div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('frontend')">Frontend</button>
+      <button class="tab" onclick="showTab('backend')">Backend</button>
+      <button class="tab" onclick="showTab('data')">Data</button>
+      <button class="tab" onclick="showTab('infra')">Infrastructure</button>
+      <button class="tab" onclick="showTab('devtools')">Dev Tools</button>
+    </div>
+
+    <div id="tab-frontend" class="tab-content active">
+      <div class="tech-grid">
+        <div class="tech-item"><div class="tech-emoji">⚛️</div><div class="tech-info"><div class="tech-name">React 18</div><div class="tech-role">UI Framework</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">📘</div><div class="tech-info"><div class="tech-name">TypeScript 5.x</div><div class="tech-role">Type Safety</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">⚡</div><div class="tech-info"><div class="tech-name">Vite 5.x</div><div class="tech-role">Build Tool</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🎨</div><div class="tech-info"><div class="tech-name">Tailwind CSS</div><div class="tech-role">Styling</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🐻</div><div class="tech-info"><div class="tech-name">Zustand</div><div class="tech-role">State Management</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🧭</div><div class="tech-info"><div class="tech-name">React Router 6</div><div class="tech-role">Routing</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">📋</div><div class="tech-info"><div class="tech-name">React Hook Form</div><div class="tech-role">Forms</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">✅</div><div class="tech-info"><div class="tech-name">Zod</div><div class="tech-role">Validation</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">📡</div><div class="tech-info"><div class="tech-name">Supabase Realtime</div><div class="tech-role">WebSockets</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">📱</div><div class="tech-info"><div class="tech-name">Vite PWA</div><div class="tech-role">PWA / Offline</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🧪</div><div class="tech-info"><div class="tech-name">Vitest</div><div class="tech-role">Unit Testing</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🎭</div><div class="tech-info"><div class="tech-name">Playwright</div><div class="tech-role">E2E Testing</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">♿</div><div class="tech-info"><div class="tech-name">Radix UI</div><div class="tech-role">Accessible Primitives</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🔧</div><div class="tech-info"><div class="tech-name">Module Federation</div><div class="tech-role">Micro-frontends</div></div></div>
+      </div>
+    </div>
+
+    <div id="tab-backend" class="tab-content">
+      <div class="tech-grid">
+        <div class="tech-item"><div class="tech-emoji">☁️</div><div class="tech-info"><div class="tech-name">Cloudflare Workers</div><div class="tech-role">Edge Runtime</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🔥</div><div class="tech-info"><div class="tech-name">Hono.js</div><div class="tech-role">Edge Framework</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">📘</div><div class="tech-info"><div class="tech-name">TypeScript 5.x</div><div class="tech-role">Type Safety</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">✅</div><div class="tech-info"><div class="tech-name">Zod</div><div class="tech-role">Input Validation</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🔐</div><div class="tech-info"><div class="tech-name">Supabase Auth</div><div class="tech-role">Authentication</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🗃️</div><div class="tech-info"><div class="tech-name">Drizzle ORM</div><div class="tech-role">Type-safe DB</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🤖</div><div class="tech-info"><div class="tech-name">CF AI Workers</div><div class="tech-role">Edge AI</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🧪</div><div class="tech-info"><div class="tech-name">Miniflare</div><div class="tech-role">Workers Simulator</div></div></div>
+      </div>
+    </div>
+
+    <div id="tab-data" class="tab-content">
+      <div class="tech-grid">
+        <div class="tech-item"><div class="tech-emoji">🐘</div><div class="tech-info"><div class="tech-name">Supabase</div><div class="tech-role">PostgreSQL 15</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🔑</div><div class="tech-info"><div class="tech-name">Cloudflare KV</div><div class="tech-role">Edge Cache</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🪣</div><div class="tech-info"><div class="tech-name">Cloudflare R2</div><div class="tech-role">Object Storage</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">📡</div><div class="tech-info"><div class="tech-name">Supabase Realtime</div><div class="tech-role">Live Sync</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🔍</div><div class="tech-info"><div class="tech-name">pg_trgm</div><div class="tech-role">Full-text Search</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🧠</div><div class="tech-info"><div class="tech-name">pgvector</div><div class="tech-role">Semantic Search</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🗃️</div><div class="tech-info"><div class="tech-name">Drizzle Kit</div><div class="tech-role">Migrations</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🔒</div><div class="tech-info"><div class="tech-name">pgcrypto</div><div class="tech-role">Data Encryption</div></div></div>
+      </div>
+    </div>
+
+    <div id="tab-infra" class="tab-content">
+      <div class="tech-grid">
+        <div class="tech-item"><div class="tech-emoji">📄</div><div class="tech-info"><div class="tech-name">Cloudflare Pages</div><div class="tech-role">Frontend Hosting</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🌐</div><div class="tech-info"><div class="tech-name">Cloudflare DNS</div><div class="tech-role">DNS & CDN</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🛡️</div><div class="tech-info"><div class="tech-name">Cloudflare WAF</div><div class="tech-role">DDoS + WAF</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">📧</div><div class="tech-info"><div class="tech-name">Resend</div><div class="tech-role">Transactional Email</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🔄</div><div class="tech-info"><div class="tech-name">GitHub Actions</div><div class="tech-role">CI/CD</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">📊</div><div class="tech-info"><div class="tech-name">CF Analytics</div><div class="tech-role">Web Analytics</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🐛</div><div class="tech-info"><div class="tech-name">Sentry</div><div class="tech-role">Error Tracking</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🔒</div><div class="tech-info"><div class="tech-name">Cloudflare SSL</div><div class="tech-role">TLS 1.3 Auto</div></div></div>
+      </div>
+    </div>
+
+    <div id="tab-devtools" class="tab-content">
+      <div class="tech-grid">
+        <div class="tech-item"><div class="tech-emoji">🏎️</div><div class="tech-info"><div class="tech-name">Turborepo</div><div class="tech-role">Monorepo Manager</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">📦</div><div class="tech-info"><div class="tech-name">pnpm</div><div class="tech-role">Package Manager</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🔍</div><div class="tech-info"><div class="tech-name">ESLint</div><div class="tech-role">Linting</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">✨</div><div class="tech-info"><div class="tech-name">Prettier</div><div class="tech-role">Code Formatting</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🐶</div><div class="tech-info"><div class="tech-name">Husky</div><div class="tech-role">Git Hooks</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">📝</div><div class="tech-info"><div class="tech-name">Conventional Commits</div><div class="tech-role">Commit Convention</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">📚</div><div class="tech-info"><div class="tech-name">Storybook</div><div class="tech-role">Component Docs</div></div></div>
+        <div class="tech-item"><div class="tech-emoji">🔄</div><div class="tech-info"><div class="tech-name">Changesets</div><div class="tech-role">Changelog</div></div></div>
+      </div>
+    </div>
+
+    <!-- Monorepo Structure -->
+    <div style="margin-top: 40px;">
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 20px; color: var(--text-primary);">📁 Recommended Monorepo Structure</h3>
+      <div class="mono-tree">
+<span class="dir">infinity-os/</span>
+├── <span class="dir">apps/</span>
+│   ├── <span class="dir">shell/</span>                    <span class="comment">← Main OS shell (React PWA)</span>
+│   ├── <span class="dir">admin/</span>                    <span class="comment">← Admin dashboard</span>
+│   └── <span class="dir">developer-portal/</span>         <span class="comment">← App Store developer portal</span>
+├── <span class="dir">packages/</span>
+│   ├── <span class="dir">kernel/</span>                   <span class="comment">← Service Worker kernel ← START HERE (from infinity-portal)</span>
+│   ├── <span class="dir">ui/</span>                       <span class="comment">← Infinity Design System (IDS)</span>
+│   ├── <span class="dir">auth/</span>                     <span class="comment">← Authentication utilities</span>
+│   ├── <span class="dir">ipc/</span>                      <span class="comment">← Inter-Process Communication</span>
+│   ├── <span class="dir">storage/</span>                  <span class="comment">← Storage abstraction layer</span>
+│   ├── <span class="dir">permissions/</span>              <span class="comment">← RBAC permission system</span>
+│   ├── <span class="dir">module-loader/</span>            <span class="comment">← Dynamic module loading</span>
+│   └── <span class="dir">types/</span>                    <span class="comment">← Shared TypeScript types</span>
+├── <span class="dir">workers/</span>
+│   ├── <span class="dir">identity/</span>                 <span class="comment">← Identity Service (CF Worker)</span>
+│   ├── <span class="dir">filesystem/</span>               <span class="comment">← File System Service (CF Worker)</span>
+│   ├── <span class="dir">registry/</span>                 <span class="comment">← Module Registry (CF Worker)</span>
+│   ├── <span class="dir">notifications/</span>            <span class="comment">← Notification Service (CF Worker)</span>
+│   ├── <span class="dir">search/</span>                   <span class="comment">← Search Service (CF Worker)</span>
+│   └── <span class="dir">ai/</span>                       <span class="comment">← AI Orchestration (CF Worker)</span>
+├── <span class="dir">modules/</span>
+│   ├── <span class="dir">file-manager/</span>             <span class="comment">← Built-in file manager</span>
+│   ├── <span class="dir">text-editor/</span>              <span class="comment">← Built-in text editor</span>
+│   ├── <span class="dir">settings/</span>                 <span class="comment">← System settings</span>
+│   ├── <span class="dir">app-store/</span>                <span class="comment">← Infinity Market</span>
+│   ├── <span class="dir">terminal/</span>                 <span class="comment">← Web terminal</span>
+│   ├── <span class="dir">calendar/</span>                 <span class="comment">← Calendar</span>
+│   └── <span class="dir">notes/</span>                    <span class="comment">← Notes</span>
+├── <span class="dir">database/</span>
+│   ├── <span class="dir">migrations/</span>               <span class="comment">← Drizzle migration files</span>
+│   ├── <span class="dir">schema/</span>                   <span class="comment">← Database schema definitions</span>
+│   └── <span class="dir">seeds/</span>                    <span class="comment">← Development seed data</span>
+└── <span class="dir">docs/</span>
+    ├── <span class="dir">architecture/</span>             <span class="comment">← Architecture documentation</span>
+    ├── <span class="dir">api/</span>                      <span class="comment">← API documentation</span>
+    ├── <span class="dir">compliance/</span>               <span class="comment">← Compliance documentation</span>
+    └── <span class="dir">sdk/</span>                      <span class="comment">← Developer SDK documentation</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-logo">∞ Infinity OS</div>
+    <p>Transformation Blueprint prepared by SuperNinja AI for Trancendos/infinity-portal</p>
+    <p style="margin-top: 8px;">2060 Modular Standard · Zero Cost · Fully Compliant · Future-Proof</p>
+    <p style="margin-top: 16px; font-size: 11px; color: var(--text-muted);">The train wreck is over. Infinity OS begins now.</p>
+  </div>
+</div>
+
+<script>
+  function showTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  // Smooth scroll for nav links
+  document.querySelectorAll('.nav-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = document.querySelector(link.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  // Animate stats on scroll
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.style.opacity = '1';
+        entry.target.style.transform = 'translateY(0)';
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.service-card, .cost-card, .compliance-card, .role-card').forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(20px)';
+    el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+    observer.observe(el);
+  });
+</script>
+
+</body>
+</html>
