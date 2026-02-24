@@ -1,0 +1,176 @@
+# ============================================================
+# Prometheus Alert Rules — Infinity OS
+# ISO 27001: A.8.16 Monitoring, A.16.1 Incident management
+# ============================================================
+
+groups:
+
+  # ============================================================
+  # SECURITY ALERTS
+  # ============================================================
+  - name: security
+    interval: 30s
+    rules:
+
+      # Vault sealed — crypto operations unavailable
+      - alert: VaultSealed
+        expr: vault_core_unsealed == 0
+        for: 1m
+        labels:
+          severity: critical
+          iso_control: A.10.1
+        annotations:
+          summary: "HashiCorp Vault is sealed"
+          description: "Vault has been sealed. Crypto-shredding and secret access are unavailable. Immediate action required."
+          runbook: "https://github.com/Trancendos/infinity-portal/blob/main/docs/runbooks/vault-sealed.md"
+
+      # High authentication failure rate — possible brute force
+      - alert: HighAuthFailureRate
+        expr: rate(infinity_auth_failures_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          iso_control: A.9.4.3
+        annotations:
+          summary: "High authentication failure rate detected"
+          description: "More than 10 auth failures per second over 5 minutes. Possible brute force attack."
+
+      # Anomalous API request rate
+      - alert: AnomalousAPIRequestRate
+        expr: rate(http_requests_total[5m]) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          iso_control: A.8.16
+        annotations:
+          summary: "Anomalous API request rate"
+          description: "API request rate exceeds 1000 req/s. Possible DDoS or runaway process."
+
+      # AI policy engine blocking high volume of requests
+      - alert: HighAIPolicyBlockRate
+        expr: rate(infinity_ai_policy_blocks_total[10m]) > 50
+        for: 5m
+        labels:
+          severity: warning
+          iso_control: A.8.16
+        annotations:
+          summary: "AI policy engine blocking high volume of requests"
+          description: "The Rust WASM policy engine is blocking >50 AI actions/min. Review AI behaviour."
+
+  # ============================================================
+  # AVAILABILITY ALERTS
+  # ============================================================
+  - name: availability
+    interval: 60s
+    rules:
+
+      # Service down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+          iso_control: A.17.1
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} has been unreachable for more than 2 minutes."
+
+      # High error rate
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          iso_control: A.17.1
+        annotations:
+          summary: "High HTTP error rate on {{ $labels.job }}"
+          description: "Error rate is {{ $value | humanizePercentage }} on {{ $labels.job }}."
+
+      # IPFS node offline
+      - alert: IPFSNodeOffline
+        expr: up{job="ipfs"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          iso_control: A.12.3
+        annotations:
+          summary: "IPFS node is offline"
+          description: "The private IPFS node has been offline for 5 minutes. File storage unavailable."
+
+  # ============================================================
+  # COMPLIANCE ALERTS
+  # ============================================================
+  - name: compliance
+    interval: 300s
+    rules:
+
+      # Audit log write failures — compliance risk
+      - alert: AuditLogWriteFailure
+        expr: rate(infinity_audit_log_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          iso_control: A.8.15
+        annotations:
+          summary: "Audit log write failures detected"
+          description: "Audit log writes are failing. This is a compliance violation (ISO 27001 A.8.15)."
+
+      # Backup job failed
+      - alert: BackupJobFailed
+        expr: time() - infinity_last_successful_backup_timestamp > 86400
+        for: 1h
+        labels:
+          severity: warning
+          iso_control: A.12.3
+        annotations:
+          summary: "Backup job has not completed in 24 hours"
+          description: "Last successful backup was more than 24 hours ago. Check backup service."
+
+      # Certificate expiry warning
+      - alert: CertificateExpiringSoon
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 30
+        for: 1h
+        labels:
+          severity: warning
+          iso_control: A.10.1
+        annotations:
+          summary: "TLS certificate expiring in {{ $value | humanizeDuration }}"
+          description: "Certificate for {{ $labels.instance }} expires soon. Renew via Let's Encrypt."
+
+  # ============================================================
+  # PERFORMANCE ALERTS
+  # ============================================================
+  - name: performance
+    interval: 60s
+    rules:
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value | humanizePercentage }}."
+
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value }}% for more than 10 minutes."
+
+      # Disk space running low
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.15
+        for: 5m
+        labels:
+          severity: warning
+          iso_control: A.12.3
+        annotations:
+          summary: "Disk space low on {{ $labels.instance }}"
+          description: "Only {{ $value | humanizePercentage }} disk space remaining on {{ $labels.mountpoint }}."

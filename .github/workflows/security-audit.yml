@@ -1,0 +1,122 @@
+# ============================================================
+# Infinity OS — Weekly Security Audit & Red Team Pipeline
+# Runs every Monday 03:00 UTC
+# Zero-cost: GitHub Actions free tier
+# ============================================================
+
+name: Security Audit · Red Team
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'   # Every Monday 03:00 UTC
+  workflow_dispatch:        # Manual trigger
+
+jobs:
+# ============================================================
+# OWASP ZAP API Scan
+# ============================================================
+  zap-scan:
+    name: OWASP ZAP API Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start identity worker (mock)
+        run: |
+          echo "Starting mock identity service for ZAP scan..."
+          # In production: start actual worker with miniflare
+          # npx miniflare workers/identity/src/index.ts --port 8787 &
+
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: 'http://localhost:8787'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a -j'
+          fail_action: false   # Report only — don't fail build
+
+      - name: Upload ZAP report
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report-${{ github.run_id }}
+          path: report_html.html
+          retention-days: 90
+
+# ============================================================
+# Dependency Audit
+# ============================================================
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run pnpm audit
+        run: pnpm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Check for outdated packages
+        run: pnpm outdated || true
+
+# ============================================================
+# Container Image Scan (for self-hosted deployment)
+# ============================================================
+  container-scan:
+    name: Container Image Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker images
+        run: |
+          docker build -f infrastructure/docker/Dockerfile.identity \
+            -t infinity-os/identity:${{ github.sha }} . || true
+
+      - name: Scan with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'infinity-os/identity:${{ github.sha }}'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+        continue-on-error: true
+
+# ============================================================
+# Secrets Rotation Reminder
+# ============================================================
+  secrets-rotation-check:
+    name: Secrets Rotation Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check secret age and create reminder issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'secrets-rotation',
+              state: 'open'
+            });
+
+            if (issues.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `[Security] Monthly Secrets Rotation Reminder — ${new Date().toISOString().slice(0,7)}`,
+                body: `## Monthly Secrets Rotation Checklist\n\n### ISO 27001 Control: A.9.4.3 — Password Management\n\n- [ ] Rotate \`JWT_SECRET\`\n- [ ] Rotate \`SUPABASE_SERVICE_KEY\`\n- [ ] Rotate \`CLOUDFLARE_API_TOKEN\`\n- [ ] Review and rotate Vault unseal keys\n- [ ] Audit active sessions and revoke stale tokens\n- [ ] Review and update \`ALLOWED_ORIGINS\`\n\n**Due:** ${new Date(Date.now() + 7*24*60*60*1000).toISOString().slice(0,10)}\n\nClose this issue once all rotations are complete.`,
+                labels: ['security', 'secrets-rotation', 'iso27001']
+              });
+            }

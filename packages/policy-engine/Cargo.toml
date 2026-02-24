@@ -1,0 +1,29 @@
+[package]
+name = "infinity-os-policy-engine"
+version = "0.1.0"
+edition = "2021"
+description = "Infinity OS Deterministic AI Policy Engine — compiled to WebAssembly"
+license = "MIT"
+authors = ["Trancendos"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+getrandom = { version = "0.2", features = ["js"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[profile.release]
+# Optimise for size — WASM modules should be small
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-Os", "--enable-mutable-globals"]

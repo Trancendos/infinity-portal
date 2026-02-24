@@ -1,0 +1,62 @@
+# ============================================================
+# Prometheus Configuration — Infinity OS
+# ISO 27001: A.8.16 Monitoring activities
+# Scrapes metrics from all Infinity OS services
+# ============================================================
+
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+  external_labels:
+    platform: 'infinity-os'
+    environment: 'production'
+
+# Alerting rules
+rule_files:
+  - "alerts.yml"
+
+# Alertmanager (optional — configure if using)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
+
+scrape_configs:
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Vault metrics
+  - job_name: 'vault'
+    metrics_path: '/v1/sys/metrics'
+    params:
+      format: ['prometheus']
+    bearer_token: '${VAULT_PROMETHEUS_TOKEN}'
+    static_configs:
+      - targets: ['vault:8200']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+
+  # Traefik metrics
+  - job_name: 'traefik'
+    static_configs:
+      - targets: ['traefik:8080']
+
+  # IPFS metrics
+  - job_name: 'ipfs'
+    metrics_path: '/debug/metrics/prometheus'
+    static_configs:
+      - targets: ['ipfs:5001']
+
+  # Node exporter (host metrics)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Cloudflare Workers metrics (via custom exporter)
+  # - job_name: 'cloudflare-workers'
+  #   static_configs:
+  #     - targets: ['cf-exporter:9199']

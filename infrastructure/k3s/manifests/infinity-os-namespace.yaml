@@ -1,0 +1,134 @@
+# ============================================================
+# Infinity OS — Kubernetes Namespace & Network Policies
+# Zero Trust: Strict network segmentation between services
+# ISO 27001: A.8.22 Segregation of networks
+# ============================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: infinity-os
+  labels:
+    app.kubernetes.io/name: infinity-os
+    app.kubernetes.io/managed-by: infinity-os-ci
+    security.infinity-os/zero-trust: "true"
+
+---
+# Network Policy: Default deny all ingress/egress
+# Zero Trust: Nothing communicates unless explicitly allowed
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: infinity-os
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+
+---
+# Allow DNS resolution (required for all pods)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: infinity-os
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+
+---
+# Allow identity worker to reach Supabase and Vault
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: identity-worker-egress
+  namespace: infinity-os
+spec:
+  podSelector:
+    matchLabels:
+      app: identity-worker
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - port: 443   # Supabase HTTPS
+        - port: 8200  # Vault
+    - to:
+        - podSelector:
+            matchLabels:
+              app: vault
+
+---
+# Allow Prometheus to scrape all pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: infinity-os
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - port: 9090
+        - port: 2000   # cloudflared metrics
+        - port: 8200   # vault metrics
+
+---
+# Vault network policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vault-policy
+  namespace: infinity-os
+spec:
+  podSelector:
+    matchLabels:
+      app: vault
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              infinity-os/vault-access: "true"
+      ports:
+        - port: 8200
+  egress:
+    - ports:
+        - port: 443   # For Vault Enterprise license check (not needed for OSS)
+
+---
+# Cloudflare Tunnel — only outbound to Cloudflare
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cloudflare-tunnel-policy
+  namespace: infinity-os
+spec:
+  podSelector:
+    matchLabels:
+      app: cloudflare-tunnel
+  policyTypes:
+    - Egress
+    - Ingress
+  egress:
+    - ports:
+        - port: 443
+        - port: 7844   # Cloudflare Tunnel protocol
+  ingress: []   # No inbound — tunnel is outbound only

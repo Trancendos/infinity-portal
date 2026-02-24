@@ -1,0 +1,64 @@
+# ============================================================
+# Cloudflare Tunnel Configuration — Infinity OS
+# Zero-cost secure ingress — no open inbound ports required
+# Replaces load balancers, NAT, and public IP requirements
+#
+# Setup:
+#   1. Install cloudflared: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/
+#   2. Authenticate: cloudflared tunnel login
+#   3. Create tunnel: cloudflared tunnel create infinity-os
+#   4. Copy tunnel ID to TUNNEL_ID below
+#   5. Run: cloudflared tunnel --config infrastructure/cloudflare/tunnel.yml run
+#
+# ISO 27001: A.13.1 Network security management
+# Zero Trust: All traffic routed through Cloudflare's network
+# ============================================================
+
+tunnel: ${CLOUDFLARE_TUNNEL_ID}
+credentials-file: /etc/cloudflared/credentials.json
+
+# Logging
+loglevel: info
+logfile: /var/log/cloudflared/tunnel.log
+
+# Metrics for Prometheus
+metrics: 0.0.0.0:2000
+
+ingress:
+  # Main OS Shell — React PWA
+  - hostname: infinity-os.${DOMAIN}
+    service: http://localhost:5173
+    originRequest:
+      noTLSVerify: false
+      connectTimeout: 30s
+      tcpKeepAlive: 30s
+      httpHostHeader: infinity-os.${DOMAIN}
+
+  # Identity Worker (local dev — production uses CF Workers)
+  - hostname: identity.${DOMAIN}
+    service: http://localhost:8787
+    originRequest:
+      noTLSVerify: false
+
+  # Filesystem Worker
+  - hostname: filesystem.${DOMAIN}
+    service: http://localhost:8788
+
+  # Grafana Dashboard
+  - hostname: grafana.${DOMAIN}
+    service: http://localhost:3000
+    originRequest:
+      noTLSVerify: false
+
+  # Vault (admin access only — restrict via Cloudflare Access)
+  - hostname: vault.${DOMAIN}
+    service: http://localhost:8200
+    originRequest:
+      noTLSVerify: false
+
+  # Langfuse AI Observability
+  - hostname: langfuse.${DOMAIN}
+    service: http://localhost:3001
+
+  # Catch-all — return 404 for unmatched routes
+  - service: http_status:404
