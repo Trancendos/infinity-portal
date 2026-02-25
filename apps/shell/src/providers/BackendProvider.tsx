@@ -305,6 +305,79 @@ export function useFederation() {
   };
 }
 
+// --- Hook: Kanban Board ---
+
+export function useKanban() {
+  const { apiCall } = useBackend();
+
+  return {
+    // Boards
+    listBoards: () => apiCall('/api/v1/kanban/boards'),
+    createBoard: (data: { name: string; use_default_columns?: boolean }) =>
+      apiCall('/api/v1/kanban/boards', { method: 'POST', body: JSON.stringify(data) }),
+    updateBoard: (boardId: string, data: any) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    deleteBoard: (boardId: string) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}`, { method: 'DELETE' }),
+
+    // Columns
+    createColumn: (boardId: string, data: any) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}/columns`, { method: 'POST', body: JSON.stringify(data) }),
+    updateColumn: (boardId: string, columnId: string, data: any) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}/columns/${columnId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    deleteColumn: (boardId: string, columnId: string) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}/columns/${columnId}`, { method: 'DELETE' }),
+
+    // Tasks
+    listTasks: (boardId: string, params?: Record<string, string>) => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return apiCall(`/api/v1/kanban/boards/${boardId}/tasks${qs}`);
+    },
+    createTask: (boardId: string, data: any) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}/tasks`, { method: 'POST', body: JSON.stringify(data) }),
+    getTask: (boardId: string, taskId: string) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}/tasks/${taskId}`),
+    updateTask: (boardId: string, taskId: string, data: any) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    moveTask: (boardId: string, taskId: string, columnId: string, position?: number) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}/tasks/${taskId}/move`, {
+        method: 'POST', body: JSON.stringify({ column_id: columnId, position }),
+      }),
+    deleteTask: (boardId: string, taskId: string) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}/tasks/${taskId}`, { method: 'DELETE' }),
+
+    // Comments
+    listComments: (boardId: string, taskId: string) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}/tasks/${taskId}/comments`),
+    addComment: (boardId: string, taskId: string, content: string, isInternal = false) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}/tasks/${taskId}/comments`, {
+        method: 'POST', body: JSON.stringify({ content, is_internal: isInternal }),
+      }),
+    updateComment: (boardId: string, taskId: string, commentId: string, content: string) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}/tasks/${taskId}/comments/${commentId}`, {
+        method: 'PATCH', body: JSON.stringify({ content }),
+      }),
+    deleteComment: (boardId: string, taskId: string, commentId: string) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}/tasks/${taskId}/comments/${commentId}`, { method: 'DELETE' }),
+
+    // History
+    getHistory: (boardId: string, taskId: string) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}/tasks/${taskId}/history`),
+
+    // Labels
+    createLabel: (boardId: string, name: string, color: string) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}/labels`, {
+        method: 'POST', body: JSON.stringify({ name, color }),
+      }),
+    deleteLabel: (boardId: string, labelId: string) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}/labels/${labelId}`, { method: 'DELETE' }),
+
+    // Stats
+    getBoardStats: (boardId: string) =>
+      apiCall(`/api/v1/kanban/boards/${boardId}/stats`),
+  };
+}
+
 // --- Hook: WebSocket ---
 
 export function useWebSocket() {

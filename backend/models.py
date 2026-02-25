@@ -155,6 +155,32 @@ class BuildTarget(str, PyEnum):
     PIP_PACKAGE = "pip_package"
 
 
+class TaskPriority(str, PyEnum):
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class TaskType(str, PyEnum):
+    STORY = "story"
+    BUG = "bug"
+    TASK = "task"
+    EPIC = "epic"
+    SUBTASK = "subtask"
+    SPIKE = "spike"
+
+
+class BoardColumnType(str, PyEnum):
+    BACKLOG = "backlog"
+    TODO = "todo"
+    IN_PROGRESS = "in_progress"
+    IN_REVIEW = "in_review"
+    TESTING = "testing"
+    DONE = "done"
+    ARCHIVED = "archived"
+
+
 # ============================================================
 # ORGANISATIONS
 # ============================================================
@@ -698,3 +724,180 @@ class FederatedService(Base):
     __table_args__ = (
         Index("idx_fed_org_type", "organisation_id", "service_type"),
     )
+
+
+# ============================================================
+# KANBAN BOARD (Task Management)
+# ============================================================
+
+class Board(Base):
+    """Kanban board for project/task management"""
+    __tablename__ = "boards"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    organisation_id = Column(String, ForeignKey("organisations.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    owner_id = Column(String, ForeignKey("users.id"), nullable=False)
+    is_default = Column(Boolean, default=False)
+    settings = Column(JSON, default=dict)  # WIP limits, colors, etc.
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    columns = relationship("BoardColumn", back_populates="board", order_by="BoardColumn.position")
+    tasks = relationship("Task", back_populates="board")
+    labels = relationship("TaskLabel", back_populates="board")
+
+    __table_args__ = (
+        Index("idx_board_org", "organisation_id"),
+    )
+
+
+class BoardColumn(Base):
+    """Swim lane / column in a Kanban board"""
+    __tablename__ = "board_columns"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    board_id = Column(String, ForeignKey("boards.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    column_type = Column(SQLEnum(BoardColumnType), nullable=False, default=BoardColumnType.TODO)
+    position = Column(Integer, nullable=False, default=0)
+    wip_limit = Column(Integer, nullable=True)  # Work-in-progress limit
+    color = Column(String, nullable=True)  # Hex color for the column header
+    is_done_column = Column(Boolean, default=False)  # Marks tasks as "complete" when moved here
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    # Relationships
+    board = relationship("Board", back_populates="columns")
+    tasks = relationship("Task", back_populates="column", order_by="Task.position")
+
+    __table_args__ = (
+        Index("idx_col_board_pos", "board_id", "position"),
+    )
+
+
+class TaskLabel(Base):
+    """Labels/tags for categorizing tasks"""
+    __tablename__ = "task_labels"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    board_id = Column(String, ForeignKey("boards.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    color = Column(String, default="#6366f1")  # Hex color
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    board = relationship("Board", back_populates="labels")
+
+
+class Task(Base):
+    """Individual task card on the Kanban board"""
+    __tablename__ = "tasks"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    board_id = Column(String, ForeignKey("boards.id", ondelete="CASCADE"), nullable=False, index=True)
+    column_id = Column(String, ForeignKey("board_columns.id", ondelete="SET NULL"), nullable=True, index=True)
+    parent_id = Column(String, ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True, index=True)  # For subtasks
+    organisation_id = Column(String, ForeignKey("organisations.id"), nullable=False, index=True)
+
+    # Core fields
+    key = Column(String, nullable=False, index=True)  # e.g. "INF-42"
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    task_type = Column(SQLEnum(TaskType), default=TaskType.TASK)
+    priority = Column(SQLEnum(TaskPriority), default=TaskPriority.MEDIUM)
+    position = Column(Integer, default=0)  # Order within column
+
+    # Assignment
+    creator_id = Column(String, ForeignKey("users.id"), nullable=False)
+    assignee_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
+
+    # Metadata
+    labels = Column(JSON, default=list)  # List of label IDs
+    story_points = Column(Integer, nullable=True)
+    due_date = Column(DateTime(timezone=True), nullable=True)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    estimated_hours = Column(Integer, nullable=True)
+    actual_hours = Column(Integer, nullable=True)
+    tags = Column(JSON, default=list)  # Free-form tags
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    board = relationship("Board", back_populates="tasks")
+    column = relationship("BoardColumn", back_populates="tasks")
+    creator = relationship("User", foreign_keys=[creator_id])
+    assignee = relationship("User", foreign_keys=[assignee_id])
+    subtasks = relationship("Task", backref="parent", remote_side=[id], foreign_keys=[parent_id])
+    comments = relationship("TaskComment", back_populates="task", order_by="TaskComment.created_at")
+    history = relationship("TaskHistory", back_populates="task", order_by="TaskHistory.created_at.desc()")
+    attachments = relationship("TaskAttachment", back_populates="task")
+
+    __table_args__ = (
+        Index("idx_task_board_col", "board_id", "column_id"),
+        Index("idx_task_org_assignee", "organisation_id", "assignee_id"),
+        Index("idx_task_key", "key"),
+    )
+
+
+class TaskComment(Base):
+    """Comments on a task card"""
+    __tablename__ = "task_comments"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    task_id = Column(String, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_id = Column(String, ForeignKey("users.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    is_internal = Column(Boolean, default=False)  # Internal notes vs public comments
+    edited_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    task = relationship("Task", back_populates="comments")
+    author = relationship("User")
+
+
+class TaskHistory(Base):
+    """Audit trail / action history for a task"""
+    __tablename__ = "task_history"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    task_id = Column(String, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    action = Column(String, nullable=False)  # "created", "moved", "assigned", "commented", "priority_changed", etc.
+    field_name = Column(String, nullable=True)  # Which field changed
+    old_value = Column(Text, nullable=True)
+    new_value = Column(Text, nullable=True)
+    metadata = Column(JSON, default=dict)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    # Relationships
+    task = relationship("Task", back_populates="history")
+    user = relationship("User")
+
+    __table_args__ = (
+        Index("idx_history_task_time", "task_id", "created_at"),
+    )
+
+
+class TaskAttachment(Base):
+    """File attachments on a task"""
+    __tablename__ = "task_attachments"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    task_id = Column(String, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True)
+    uploader_id = Column(String, ForeignKey("users.id"), nullable=False)
+    filename = Column(String, nullable=False)
+    file_path = Column(String, nullable=False)
+    file_size = Column(BigInteger, default=0)
+    mime_type = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    task = relationship("Task", back_populates="attachments")
+    uploader = relationship("User")

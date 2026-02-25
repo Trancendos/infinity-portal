@@ -10,6 +10,7 @@ const HITLDashboard = lazy(() => import('../modules/HITLDashboard'));
 const RepositoryManager = lazy(() => import('../modules/RepositoryManager'));
 const BuildManager = lazy(() => import('../modules/BuildManager'));
 const FederationDashboard = lazy(() => import('../modules/FederationDashboard'));
+const KanbanBoard = lazy(() => import('../modules/KanbanBoard'));
 
 interface WindowProps {
   id: string;
@@ -64,6 +65,7 @@ function ModuleRenderer({ moduleId }: { moduleId: string }) {
     'com.infinity-os.repositories': <RepositoryManager />,
     'com.infinity-os.build-manager': <BuildManager />,
     'com.infinity-os.federation': <FederationDashboard />,
+    'com.infinity-os.kanban': <KanbanBoard />,
 
     // Placeholder modules (to be implemented)
     'com.infinity-os.file-manager': <PlaceholderModule name="File Manager" icon="📁" />,
@@ -164,6 +166,7 @@ export default function Window({
 
 // Export module registry for desktop icons
 export const MODULE_REGISTRY = [
+  { id: 'com.infinity-os.kanban', name: 'Task Board', icon: '📋', category: 'productivity' },
   { id: 'com.infinity-os.admin-panel', name: 'Admin Panel', icon: '👥', category: 'system' },
   { id: 'com.infinity-os.compliance', name: 'Compliance', icon: '🛡️', category: 'governance' },
   { id: 'com.infinity-os.hitl-dashboard', name: 'HITL Oversight', icon: '🔍', category: 'governance' },
