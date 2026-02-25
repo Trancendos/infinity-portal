@@ -28,7 +28,7 @@
     "tailwind-merge": "^2.2.0",
     "lucide-react": "^0.303.0",
     "framer-motion": "^10.17.0",
-    "react-resizable-panels": "^1.0.9",
+    "react-resizable-panels": "^4.6.5",
     "date-fns": "^3.0.6"
   },
   "devDependencies": {
