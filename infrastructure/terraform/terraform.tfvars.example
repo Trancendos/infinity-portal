@@ -1,0 +1,24 @@
+# terraform/terraform.tfvars.example
+# Copy to terraform.tfvars and fill in values. NEVER commit terraform.tfvars.
+
+project_name = "infinity-os"
+environment  = "production"
+
+# Dynamic provider toggles - change and `terraform apply` to switch
+active_compute_provider = "koyeb"    # koyeb | flyio | render | railway
+active_db_provider      = "neon"     # neon | supabase | cockroach | turso
+active_edge_provider    = "cloudflare" # cloudflare | vercel | bunny
+
+# Domain
+domain_name = "trancendos.com"
+deploy_region = "fra"
+
+# Docker image (set by CI/CD)
+ghcr_docker_image = "ghcr.io/trancendos/infinity-os:latest"
+
+# Secrets - prefer TF_VAR_ env vars over this file
+# cloudflare_api_token = ""
+# cloudflare_zone_id   = ""
+# neon_api_key         = ""
+# koyeb_api_token      = ""
+# jwt_secret_key       = ""

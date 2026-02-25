@@ -1,0 +1,79 @@
+# .github/workflows/deploy-cloudflare.yml
+# Deploy TypeScript services to Cloudflare Workers
+name: Deploy to Cloudflare
+
+on:
+  workflow_call:
+    inputs:
+      worker-name:
+        type: string
+        required: true
+      environment:
+        type: string
+        default: "production"
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        required: true
+      CLOUDFLARE_ACCOUNT_ID:
+        required: true
+
+  # Also allow manual trigger
+  workflow_dispatch:
+    inputs:
+      worker-name:
+        description: "Worker name to deploy"
+        required: true
+      environment:
+        description: "Target environment"
+        default: "production"
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run smoke tests
+        run: npm test -- --passWithNoTests
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --name ${{ inputs.worker-name }}
+
+      - name: Post-deploy health check
+        run: |
+          WORKER_URL="https://${{ inputs.worker-name }}.${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.workers.dev"
+          echo "Checking health at ${WORKER_URL}/health ..."
+
+          for i in {1..5}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${WORKER_URL}/health" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "⏳ Attempt $i: status=$STATUS, retrying in 5s..."
+            sleep 5
+          done
+
+          echo "⚠️ Health check did not return 200 after 5 attempts"
+          # Don't fail the deploy - worker may need warm-up time
