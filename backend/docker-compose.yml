@@ -53,6 +53,22 @@ services:
       FILE_STORAGE_ROOT: /data/files
       GIT_STORAGE_ROOT: /data/repos
       BUILD_OUTPUT_ROOT: /data/builds
+      # LLM Providers (set at least one)
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      HF_API_KEY: ${HF_API_KEY:-}
+      LOCAL_LLM_URL: ${LOCAL_LLM_URL:-http://host.docker.internal:11434/v1}
+      # C2PA Content Provenance
+      C2PA_ENABLED: ${C2PA_ENABLED:-false}
+      C2PA_CERT_PATH: ${C2PA_CERT_PATH:-}
+      C2PA_KEY_PATH: ${C2PA_KEY_PATH:-}
+      C2PA_CERT_PASSWORD: ${C2PA_CERT_PASSWORD:-}
+      C2PA_CLAIM_GENERATOR: ${C2PA_CLAIM_GENERATOR:-InfinityOS/3.0.0}
+      # OpenTelemetry
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-infinity-os-api}
     volumes:
       - filedata:/data/files
       - repodata:/data/repos

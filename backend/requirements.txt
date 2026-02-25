@@ -17,6 +17,9 @@ python-jose[cryptography]==3.3.0
 httpx==0.28.1
 aiohttp==3.11.11
 
+# C2PA Content Provenance (EU AI Act compliance)
+c2pa-python>=0.6.0
+
 # Utilities
 python-multipart==0.0.20
 python-dotenv==1.0.1

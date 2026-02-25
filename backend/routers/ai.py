@@ -215,21 +215,36 @@ async def generate_ai_content(
             "reason": "Approved – minimal risk",
         }
 
-        # Create provenance manifest
-        content_hash = hashlib.sha256(llm_result["content"].encode()).hexdigest()
+        # Create provenance manifest with C2PA signing
+        from c2pa_signing import sign_content, is_available as c2pa_available
+
+        c2pa_result = sign_content(
+            content=llm_result["content"],
+            request_id=request_id,
+            model_used=llm_result["model_used"],
+            prompt=request.prompt,
+            system_id=request.system_id,
+            organisation_id=user.organisation_id,
+            user_id=user.id,
+            task_type=request.task_type,
+            risk_level=system_record.risk_level.value if system_record else "MINIMAL_RISK",
+        )
+
         provenance = ProvenanceManifest(
             request_id=request_id,
             system_id=request.system_id,
             user_id=user.id,
             organisation_id=user.organisation_id,
-            content_hash=content_hash,
+            content_hash=c2pa_result["content_hash"],
             manifest_data={
                 "model": llm_result["model_used"],
                 "timestamp": now.isoformat(),
-                "prompt_hash": hashlib.sha256(request.prompt.encode()).hexdigest(),
+                "prompt_hash": c2pa_result["prompt_hash"],
+                "c2pa_assertions": c2pa_result["manifest_data"].get("assertions", []),
+                "c2pa_available": c2pa_available(),
             },
-            signing_status="SIGNED",
-            signed_at=now,
+            signing_status=c2pa_result["signing_status"],
+            signed_at=now if c2pa_result["signing_status"] == "SIGNED" else None,
         )
         db.add(provenance)
 
