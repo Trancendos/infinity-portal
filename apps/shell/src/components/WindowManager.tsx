@@ -19,6 +19,14 @@ const IntegrationHub = lazy(() => import('../modules/IntegrationHub'));
 const AppStore = lazy(() => import('../modules/AppStore'));
 const NotificationCentre = lazy(() => import('../modules/NotificationCentre'));
 
+// Project & IT Management modules
+const ITSMDashboard = lazy(() => import('../modules/ITSMDashboard'));
+const ProjectGates = lazy(() => import('../modules/ProjectGates'));
+const DocumentLibrary = lazy(() => import('../modules/DocumentLibrary'));
+const AssetRegistry = lazy(() => import('../modules/AssetRegistry'));
+const KnowledgeHub = lazy(() => import('../modules/KnowledgeHub'));
+const DependencyMap = lazy(() => import('../modules/DependencyMap'));
+
 interface WindowProps {
   id: string;
   moduleId: string;
@@ -82,6 +90,14 @@ function ModuleRenderer({ moduleId }: { moduleId: string }) {
     'com.infinity-os.integrations': <IntegrationHub />,
     'com.infinity-os.appstore': <AppStore />,
     'com.infinity-os.notifications': <NotificationCentre />,
+
+    // Project & IT Management modules
+    'com.infinity-os.itsm': <ITSMDashboard />,
+    'com.infinity-os.gates': <ProjectGates />,
+    'com.infinity-os.documents': <DocumentLibrary />,
+    'com.infinity-os.assets': <AssetRegistry />,
+    'com.infinity-os.knowledge': <KnowledgeHub />,
+    'com.infinity-os.dependencies': <DependencyMap />,
 
     // Placeholder modules (to be implemented)
     'com.infinity-os.text-editor': <PlaceholderModule name="Text Editor" icon="📝" />,
@@ -194,4 +210,12 @@ export const MODULE_REGISTRY = [
   { id: 'com.infinity-os.notifications', name: 'Notifications', icon: '🔔', category: 'system' },
   { id: 'com.infinity-os.settings', name: 'Settings', icon: '⚙️', category: 'system' },
   { id: 'com.infinity-os.browser', name: 'Browser', icon: '🌐', category: 'productivity' },
+
+  // Project & IT Management
+  { id: 'com.infinity-os.itsm', name: 'ITSM', icon: '🎫', category: 'management' },
+  { id: 'com.infinity-os.gates', name: 'Project Gates', icon: '🚦', category: 'management' },
+  { id: 'com.infinity-os.documents', name: 'Documents', icon: '📚', category: 'management' },
+  { id: 'com.infinity-os.assets', name: 'Asset Registry', icon: '🏷', category: 'management' },
+  { id: 'com.infinity-os.knowledge', name: 'Knowledge Hub', icon: '🧠', category: 'management' },
+  { id: 'com.infinity-os.dependencies', name: 'Dependencies', icon: '🗺', category: 'management' },
 ];

@@ -347,7 +347,7 @@ class AuditLog(Base):
 
     id = Column(String, primary_key=True, default=new_uuid)
     timestamp = Column(DateTime(timezone=True), default=utcnow, index=True)
-    event_type = Column(SQLEnum(AuditEventType), nullable=False, index=True)
+    event_type = Column(String, nullable=False, index=True)
     system_id = Column(String, ForeignKey("ai_systems.id"), nullable=True, index=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
     organisation_id = Column(String, nullable=False, index=True)
@@ -1022,4 +1022,941 @@ class WebhookDelivery(Base):
 
     __table_args__ = (
         Index("idx_delivery_webhook_time", "webhook_id", "created_at"),
+    )
+
+
+# ============================================================
+# ITSM — IT SERVICE MANAGEMENT
+# ============================================================
+
+class IncidentSeverity(str, PyEnum):
+    P1 = "P1"
+    P2 = "P2"
+    P3 = "P3"
+    P4 = "P4"
+    P5 = "P5"
+
+
+class IncidentStatus(str, PyEnum):
+    OPEN = "open"
+    ACKNOWLEDGED = "acknowledged"
+    IN_PROGRESS = "in_progress"
+    ON_HOLD = "on_hold"
+    RESOLVED = "resolved"
+    CLOSED = "closed"
+
+
+class ChangeType(str, PyEnum):
+    STANDARD = "standard"
+    NORMAL = "normal"
+    EMERGENCY = "emergency"
+
+
+class ChangeStatus(str, PyEnum):
+    DRAFT = "draft"
+    SUBMITTED = "submitted"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    IMPLEMENTING = "implementing"
+    COMPLETED = "completed"
+    ROLLED_BACK = "rolled_back"
+    CANCELLED = "cancelled"
+
+
+class CMDBItemStatus(str, PyEnum):
+    ACTIVE = "active"
+    MAINTENANCE = "maintenance"
+    RETIRED = "retired"
+    DISPOSED = "disposed"
+
+
+class ITSMIncident(Base):
+    """ITSM Incident tracking — ITIL-aligned"""
+    __tablename__ = "itsm_incidents"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    key = Column(String, unique=True, nullable=False, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    severity = Column(String, nullable=False, default=IncidentSeverity.P3.value)
+    status = Column(String, nullable=False, default=IncidentStatus.OPEN.value)
+    category = Column(String, nullable=True)
+    subcategory = Column(String, nullable=True)
+
+    assignee_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    reporter_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=False)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    sla_id = Column(String, ForeignKey("itsm_sla_definitions.id", ondelete="SET NULL"), nullable=True)
+    problem_id = Column(String, ForeignKey("itsm_problems.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    resolution = Column(Text, nullable=True)
+    escalation_level = Column(Integer, default=0)
+    impact = Column(String, nullable=True)
+    urgency = Column(String, nullable=True)
+    affected_services = Column(JSON, default=list)
+    tags = Column(JSON, default=list)
+
+    acknowledged_at = Column(DateTime(timezone=True), nullable=True)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("idx_incident_org_status", "organisation_id", "status"),
+        Index("idx_incident_severity", "severity"),
+    )
+
+
+class ITSMProblem(Base):
+    """ITSM Problem management — root cause analysis"""
+    __tablename__ = "itsm_problems"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    key = Column(String, unique=True, nullable=False, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    root_cause = Column(Text, nullable=True)
+    workaround = Column(Text, nullable=True)
+    status = Column(String, nullable=False, default="open")
+    owner_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class ITSMChange(Base):
+    """ITSM Change management"""
+    __tablename__ = "itsm_changes"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    key = Column(String, unique=True, nullable=False, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    change_type = Column(String, nullable=False, default=ChangeType.NORMAL.value)
+    risk_level = Column(String, nullable=True)
+    impact = Column(String, nullable=True)
+    rollback_plan = Column(Text, nullable=True)
+    implementation_plan = Column(Text, nullable=True)
+    status = Column(String, nullable=False, default=ChangeStatus.DRAFT.value)
+
+    requester_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=False)
+    assignee_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    cab_approver_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    scheduled_start = Column(DateTime(timezone=True), nullable=True)
+    scheduled_end = Column(DateTime(timezone=True), nullable=True)
+    actual_start = Column(DateTime(timezone=True), nullable=True)
+    actual_end = Column(DateTime(timezone=True), nullable=True)
+    cab_approved_at = Column(DateTime(timezone=True), nullable=True)
+
+    affected_cis = Column(JSON, default=list)
+    tags = Column(JSON, default=list)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("idx_change_org_status", "organisation_id", "status"),
+    )
+
+
+class ITSMServiceRequest(Base):
+    """ITSM Service catalog requests"""
+    __tablename__ = "itsm_service_requests"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    key = Column(String, unique=True, nullable=False, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    catalog_item = Column(String, nullable=True)
+    fulfillment_status = Column(String, nullable=False, default="pending")
+
+    requester_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=False)
+    approver_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    assignee_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    fulfilled_at = Column(DateTime(timezone=True), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class ITSMSLADefinition(Base):
+    """SLA policy definitions"""
+    __tablename__ = "itsm_sla_definitions"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    priority = Column(String, nullable=False)
+    response_time_mins = Column(Integer, nullable=False)
+    resolution_time_mins = Column(Integer, nullable=False)
+    business_hours_only = Column(Boolean, default=True)
+    escalation_rules = Column(JSON, default=list)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    is_active = Column(Boolean, default=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class ITSMSLATracking(Base):
+    """SLA compliance tracking per incident"""
+    __tablename__ = "itsm_sla_tracking"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    incident_id = Column(String, ForeignKey("itsm_incidents.id", ondelete="CASCADE"), nullable=False, index=True)
+    sla_id = Column(String, ForeignKey("itsm_sla_definitions.id", ondelete="CASCADE"), nullable=False)
+
+    response_deadline = Column(DateTime(timezone=True), nullable=False)
+    resolution_deadline = Column(DateTime(timezone=True), nullable=False)
+    response_met = Column(Boolean, nullable=True)
+    resolution_met = Column(Boolean, nullable=True)
+    breach_notified = Column(Boolean, default=False)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class ITSMCMDBItem(Base):
+    """Configuration Management Database items"""
+    __tablename__ = "itsm_cmdb_items"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    name = Column(String, nullable=False)
+    ci_type = Column(String, nullable=False)
+    status = Column(String, nullable=False, default=CMDBItemStatus.ACTIVE.value)
+    environment = Column(String, nullable=True)
+    owner_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    dependencies = Column(JSON, default=list)
+    attributes = Column(JSON, default=dict)
+    description = Column(Text, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("idx_cmdb_org_type", "organisation_id", "ci_type"),
+    )
+
+
+# ============================================================
+# PRINCE2 GATE PROCESS — PROJECT LIFECYCLE MANAGEMENT
+# ============================================================
+
+class GateStatus(str, PyEnum):
+    PENDING = "pending"
+    IN_REVIEW = "in_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    SKIPPED = "skipped"
+
+
+class ProjectStatus(str, PyEnum):
+    DRAFT = "draft"
+    ACTIVE = "active"
+    ON_HOLD = "on_hold"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class PLMProject(Base):
+    """PRINCE2 Project container"""
+    __tablename__ = "plm_projects"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    key = Column(String, unique=True, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String, nullable=False, default=ProjectStatus.DRAFT.value)
+    owner_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=False)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    current_gate = Column(Integer, default=0)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    target_date = Column(DateTime(timezone=True), nullable=True)
+    budget = Column(String, nullable=True)
+    tags = Column(JSON, default=list)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("idx_project_org_status", "organisation_id", "status"),
+    )
+
+
+class PLMGate(Base):
+    """PRINCE2 Gate definitions per project"""
+    __tablename__ = "plm_gates"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    project_id = Column(String, ForeignKey("plm_projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    gate_number = Column(Integer, nullable=False)
+    gate_name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String, nullable=False, default=GateStatus.PENDING.value)
+    required_approvers = Column(Integer, default=1)
+    deadline = Column(DateTime(timezone=True), nullable=True)
+    submitted_at = Column(DateTime(timezone=True), nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    rejected_at = Column(DateTime(timezone=True), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("project_id", "gate_number", name="uq_project_gate"),
+    )
+
+
+class PLMGateReview(Base):
+    """Individual gate reviews by reviewers"""
+    __tablename__ = "plm_gate_reviews"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    gate_id = Column(String, ForeignKey("plm_gates.id", ondelete="CASCADE"), nullable=False, index=True)
+    reviewer_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=False)
+    decision = Column(String, nullable=False)  # approve, reject, defer
+    comments = Column(Text, nullable=True)
+    evidence_urls = Column(JSON, default=list)
+
+    reviewed_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class PLMGateCriteria(Base):
+    """Checklist items per gate"""
+    __tablename__ = "plm_gate_criteria"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    gate_id = Column(String, ForeignKey("plm_gates.id", ondelete="CASCADE"), nullable=False, index=True)
+    description = Column(String, nullable=False)
+    is_mandatory = Column(Boolean, default=True)
+    is_met = Column(Boolean, default=False)
+    verified_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class PLMDeliverable(Base):
+    """Gate deliverables/artifacts"""
+    __tablename__ = "plm_deliverables"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    gate_id = Column(String, ForeignKey("plm_gates.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    deliverable_type = Column(String, nullable=True)
+    file_node_id = Column(String, ForeignKey("file_nodes.id", ondelete="SET NULL"), nullable=True)
+    document_id = Column(String, nullable=True)
+    external_url = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="pending")
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+# ============================================================
+# DOCUMENT MANAGEMENT SYSTEM
+# ============================================================
+
+class DocumentSource(str, PyEnum):
+    LOCAL = "local"
+    GOOGLE_DRIVE = "google_drive"
+    ONEDRIVE = "onedrive"
+    DROPBOX = "dropbox"
+
+
+class SyncDirection(str, PyEnum):
+    PULL = "pull"
+    PUSH = "push"
+    BIDIRECTIONAL = "bidirectional"
+
+
+class SyncStatus(str, PyEnum):
+    IDLE = "idle"
+    SYNCING = "syncing"
+    ERROR = "error"
+    PAUSED = "paused"
+
+
+class Document(Base):
+    """Document registry — central catalog of all documents"""
+    __tablename__ = "documents"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    file_node_id = Column(String, ForeignKey("file_nodes.id", ondelete="SET NULL"), nullable=True)
+    mime_type = Column(String, nullable=True)
+    size = Column(BigInteger, default=0)
+    source = Column(String, nullable=False, default=DocumentSource.LOCAL.value)
+    source_id = Column(String, nullable=True)
+    source_path = Column(String, nullable=True)
+    hash_sha256 = Column(String, nullable=True, index=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    category_id = Column(String, ForeignKey("document_categories.id", ondelete="SET NULL"), nullable=True, index=True)
+    uploaded_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    is_extracted = Column(Boolean, default=False)
+    extracted_text = Column(Text, nullable=True)
+    extracted_entities = Column(JSON, default=dict)
+    page_count = Column(Integer, nullable=True)
+    language = Column(String, nullable=True)
+
+    tags = Column(JSON, default=list)
+    extra_data = Column(JSON, default=dict)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("idx_doc_org_source", "organisation_id", "source"),
+        Index("idx_doc_hash", "hash_sha256"),
+    )
+
+
+class DocumentTag(Base):
+    """Smart tags on documents"""
+    __tablename__ = "document_tags"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    document_id = Column(String, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    tag_name = Column(String, nullable=False)
+    tag_type = Column(String, nullable=False, default="manual")  # auto, manual, rule
+    confidence = Column(Integer, nullable=True)  # 0-100 for AI tags
+    source = Column(String, nullable=False, default="user")  # ai, user, rule
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("document_id", "tag_name", name="uq_doc_tag"),
+    )
+
+
+class DocumentCategory(Base):
+    """Category taxonomy for documents"""
+    __tablename__ = "document_categories"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    name = Column(String, nullable=False)
+    slug = Column(String, nullable=False)
+    parent_id = Column(String, ForeignKey("document_categories.id", ondelete="SET NULL"), nullable=True)
+    description = Column(Text, nullable=True)
+    icon = Column(String, nullable=True)
+    auto_rules = Column(JSON, default=dict)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("organisation_id", "slug", name="uq_org_cat_slug"),
+    )
+
+
+class CloudSyncConfig(Base):
+    """Per-provider cloud sync configuration"""
+    __tablename__ = "cloud_sync_configs"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider = Column(String, nullable=False)
+    connector_id = Column(String, ForeignKey("integration_connectors.id", ondelete="SET NULL"), nullable=True)
+    root_folder_path = Column(String, nullable=True)
+    sync_direction = Column(String, nullable=False, default=SyncDirection.PULL.value)
+    sync_frequency_mins = Column(Integer, default=60)
+    status = Column(String, nullable=False, default=SyncStatus.IDLE.value)
+    last_sync = Column(DateTime(timezone=True), nullable=True)
+    last_error = Column(Text, nullable=True)
+    items_synced = Column(Integer, default=0)
+    extra_data = Column(JSON, default=dict)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class CloudSyncItem(Base):
+    """Individual synced items from cloud providers"""
+    __tablename__ = "cloud_sync_items"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    config_id = Column(String, ForeignKey("cloud_sync_configs.id", ondelete="CASCADE"), nullable=False, index=True)
+    remote_id = Column(String, nullable=False)
+    remote_path = Column(String, nullable=False)
+    local_document_id = Column(String, ForeignKey("documents.id", ondelete="SET NULL"), nullable=True)
+    sync_status = Column(String, nullable=False, default="synced")
+    last_modified_remote = Column(DateTime(timezone=True), nullable=True)
+    last_modified_local = Column(DateTime(timezone=True), nullable=True)
+    conflict_resolution = Column(String, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("config_id", "remote_id", name="uq_sync_remote"),
+    )
+
+
+class DuplicateGroup(Base):
+    """Detected duplicate document groups"""
+    __tablename__ = "duplicate_groups"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    hash_sha256 = Column(String, nullable=True)
+    match_type = Column(String, nullable=False, default="hash")  # hash, filename, content
+    file_count = Column(Integer, default=0)
+    primary_document_id = Column(String, ForeignKey("documents.id", ondelete="SET NULL"), nullable=True)
+    document_ids = Column(JSON, default=list)
+    status = Column(String, nullable=False, default="pending")  # pending, resolved, ignored
+
+    detected_at = Column(DateTime(timezone=True), default=utcnow)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+
+
+# ============================================================
+# ASSET MANAGEMENT
+# ============================================================
+
+class AssetType(str, PyEnum):
+    HARDWARE = "hardware"
+    SOFTWARE = "software"
+    SERVICE = "service"
+    LICENSE = "license"
+    CLOUD_RESOURCE = "cloud_resource"
+    NETWORK = "network"
+    DATA = "data"
+
+
+class AssetStatus(str, PyEnum):
+    ACTIVE = "active"
+    MAINTENANCE = "maintenance"
+    RETIRED = "retired"
+    DISPOSED = "disposed"
+    IN_STOCK = "in_stock"
+    ON_ORDER = "on_order"
+
+
+class Asset(Base):
+    """Asset registry — full CMDB"""
+    __tablename__ = "assets"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    asset_tag = Column(String, unique=True, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    asset_type = Column(String, nullable=False)
+    status = Column(String, nullable=False, default=AssetStatus.ACTIVE.value)
+    description = Column(Text, nullable=True)
+    owner_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    location = Column(String, nullable=True)
+    vendor = Column(String, nullable=True)
+    serial_number = Column(String, nullable=True)
+    model_number = Column(String, nullable=True)
+    purchase_date = Column(DateTime(timezone=True), nullable=True)
+    warranty_expiry = Column(DateTime(timezone=True), nullable=True)
+    cost = Column(String, nullable=True)
+    attributes = Column(JSON, default=dict)
+    tags = Column(JSON, default=list)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("idx_asset_org_type", "organisation_id", "asset_type"),
+        Index("idx_asset_status", "status"),
+    )
+
+
+class AssetRelationship(Base):
+    """Relationships between assets"""
+    __tablename__ = "asset_relationships"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    parent_id = Column(String, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False, index=True)
+    child_id = Column(String, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False, index=True)
+    relationship_type = Column(String, nullable=False)  # contains, depends_on, connects_to, runs_on, licensed_for
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("parent_id", "child_id", "relationship_type", name="uq_asset_rel"),
+    )
+
+
+class AssetLifecycleEvent(Base):
+    """Full lifecycle history for assets"""
+    __tablename__ = "asset_lifecycle_events"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    asset_id = Column(String, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False, index=True)
+    event_type = Column(String, nullable=False)  # created, assigned, moved, maintained, upgraded, retired, disposed
+    actor_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    details = Column(JSON, default=dict)
+    notes = Column(Text, nullable=True)
+
+    occurred_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class AssetMaintenance(Base):
+    """Maintenance schedule and records"""
+    __tablename__ = "asset_maintenance"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    asset_id = Column(String, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False, index=True)
+    maintenance_type = Column(String, nullable=False)  # preventive, corrective, inspection
+    description = Column(Text, nullable=True)
+    scheduled_date = Column(DateTime(timezone=True), nullable=False)
+    completed_date = Column(DateTime(timezone=True), nullable=True)
+    technician = Column(String, nullable=True)
+    cost = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+# ============================================================
+# KNOWLEDGE BASE
+# ============================================================
+
+class KBArticleStatus(str, PyEnum):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    ARCHIVED = "archived"
+
+
+class KBArticle(Base):
+    """Knowledge base articles — wiki-style"""
+    __tablename__ = "kb_articles"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    title = Column(String, nullable=False)
+    slug = Column(String, nullable=False, index=True)
+    content_markdown = Column(Text, nullable=True)
+    content_html = Column(Text, nullable=True)
+    summary = Column(Text, nullable=True)
+    category_id = Column(String, ForeignKey("kb_categories.id", ondelete="SET NULL"), nullable=True, index=True)
+    author_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=False)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    status = Column(String, nullable=False, default=KBArticleStatus.DRAFT.value)
+    version = Column(Integer, default=1)
+    view_count = Column(Integer, default=0)
+    helpful_count = Column(Integer, default=0)
+    tags = Column(JSON, default=list)
+    related_incident_ids = Column(JSON, default=list)
+
+    published_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("organisation_id", "slug", name="uq_org_article_slug"),
+        Index("idx_kb_org_status", "organisation_id", "status"),
+    )
+
+
+class KBCategory(Base):
+    """Knowledge base category tree"""
+    __tablename__ = "kb_categories"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    name = Column(String, nullable=False)
+    slug = Column(String, nullable=False)
+    parent_id = Column(String, ForeignKey("kb_categories.id", ondelete="SET NULL"), nullable=True)
+    description = Column(Text, nullable=True)
+    icon = Column(String, nullable=True)
+    position = Column(Integer, default=0)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("organisation_id", "slug", name="uq_org_kb_cat_slug"),
+    )
+
+
+class KBArticleVersion(Base):
+    """Version history for KB articles"""
+    __tablename__ = "kb_article_versions"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    article_id = Column(String, ForeignKey("kb_articles.id", ondelete="CASCADE"), nullable=False, index=True)
+    version = Column(Integer, nullable=False)
+    content_markdown = Column(Text, nullable=True)
+    changed_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    change_summary = Column(String, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("article_id", "version", name="uq_article_version"),
+    )
+
+
+class LearningPath(Base):
+    """Guided learning sequences"""
+    __tablename__ = "learning_paths"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    article_ids = Column(JSON, default=list)
+    estimated_duration_mins = Column(Integer, nullable=True)
+    difficulty = Column(String, nullable=True)  # beginner, intermediate, advanced
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class LearningProgress(Base):
+    """User progress on learning paths"""
+    __tablename__ = "learning_progress"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    path_id = Column(String, ForeignKey("learning_paths.id", ondelete="CASCADE"), nullable=False, index=True)
+    current_article_index = Column(Integer, default=0)
+    completed_articles = Column(JSON, default=list)
+
+    started_at = Column(DateTime(timezone=True), default=utcnow)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "path_id", name="uq_user_path"),
+    )
+
+
+class AIKnowledgeExtraction(Base):
+    """AI-derived insights from captured data"""
+    __tablename__ = "ai_knowledge_extractions"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    source_type = Column(String, nullable=False)  # audit_log, incident, change, document
+    source_id = Column(String, nullable=False)
+    extracted_knowledge = Column(Text, nullable=False)
+    confidence = Column(Integer, nullable=True)
+    tags = Column(JSON, default=list)
+    validated_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    validated_at = Column(DateTime(timezone=True), nullable=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        Index("idx_ai_extract_source", "source_type", "source_id"),
+    )
+
+
+# ============================================================
+# DEPENDENCY MANAGEMENT
+# ============================================================
+
+class DependencyMapType(str, PyEnum):
+    REPOSITORY = "repository"
+    SERVICE = "service"
+    INFRASTRUCTURE = "infrastructure"
+    MIXED = "mixed"
+
+
+class NodeHealthStatus(str, PyEnum):
+    HEALTHY = "healthy"
+    DEGRADED = "degraded"
+    DOWN = "down"
+    UNKNOWN = "unknown"
+
+
+class DependencyMap(Base):
+    """Named dependency graphs"""
+    __tablename__ = "dependency_maps"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    map_type = Column(String, nullable=False, default=DependencyMapType.MIXED.value)
+    auto_discovered = Column(Boolean, default=False)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class DependencyNode(Base):
+    """Nodes in a dependency graph"""
+    __tablename__ = "dependency_nodes"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    map_id = Column(String, ForeignKey("dependency_maps.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    node_type = Column(String, nullable=False)  # repo, service, package, infra
+    source_url = Column(String, nullable=True)
+    version = Column(String, nullable=True)
+    health_status = Column(String, nullable=False, default=NodeHealthStatus.UNKNOWN.value)
+    health_check_url = Column(String, nullable=True)
+    last_checked = Column(DateTime(timezone=True), nullable=True)
+    extra_data = Column(JSON, default=dict)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class DependencyEdge(Base):
+    """Relationships between dependency nodes"""
+    __tablename__ = "dependency_edges"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    map_id = Column(String, ForeignKey("dependency_maps.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_id = Column(String, ForeignKey("dependency_nodes.id", ondelete="CASCADE"), nullable=False, index=True)
+    target_id = Column(String, ForeignKey("dependency_nodes.id", ondelete="CASCADE"), nullable=False, index=True)
+    edge_type = Column(String, nullable=False)  # depends_on, blocks, triggers, deploys_to
+    weight = Column(Integer, default=1)
+    is_critical = Column(Boolean, default=False)
+    label = Column(String, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("map_id", "source_id", "target_id", "edge_type", name="uq_dep_edge"),
+    )
+
+
+class DeploymentChain(Base):
+    """Ordered deployment sequences"""
+    __tablename__ = "deployment_chains"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    node_ids = Column(JSON, default=list)
+    auto_rollback = Column(Boolean, default=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    last_executed = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class DeploymentExecution(Base):
+    """Execution history for deployment chains"""
+    __tablename__ = "deployment_executions"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    chain_id = Column(String, ForeignKey("deployment_chains.id", ondelete="CASCADE"), nullable=False, index=True)
+    status = Column(String, nullable=False, default="running")  # running, completed, failed, rolled_back
+    triggered_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    logs = Column(JSON, default=list)
+    current_step = Column(Integer, default=0)
+    total_steps = Column(Integer, default=0)
+
+    started_at = Column(DateTime(timezone=True), default=utcnow)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class RepoSyncConfig(Base):
+    """Central repository management configurations"""
+    __tablename__ = "repo_sync_configs"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    repo_url = Column(String, nullable=False)
+    repo_name = Column(String, nullable=False)
+    branch = Column(String, nullable=False, default="main")
+    sync_frequency_mins = Column(Integer, default=60)
+    last_synced = Column(DateTime(timezone=True), nullable=True)
+    health_check_url = Column(String, nullable=True)
+    health_status = Column(String, nullable=False, default=NodeHealthStatus.UNKNOWN.value)
+    auto_deploy = Column(Boolean, default=False)
+    deploy_chain_id = Column(String, ForeignKey("deployment_chains.id", ondelete="SET NULL"), nullable=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    extra_data = Column(JSON, default=dict)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+# ============================================================
+# DIGITAL TWIN
+# ============================================================
+
+class DTwinSnapshot(Base):
+    """Point-in-time system state snapshots"""
+    __tablename__ = "dtwin_snapshots"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    snapshot_type = Column(String, nullable=False, default="full")  # full, incremental
+    data = Column(JSON, default=dict)
+    metrics = Column(JSON, default=dict)
+    node_count = Column(Integer, default=0)
+    service_count = Column(Integer, default=0)
+    created_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class DTwinSimulation(Base):
+    """What-if scenario simulations"""
+    __tablename__ = "dtwin_simulations"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    scenario = Column(JSON, default=dict)
+    results = Column(JSON, default=dict)
+    status = Column(String, nullable=False, default="pending")  # pending, running, completed, failed
+    created_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class DTwinAnomaly(Base):
+    """Detected system anomalies"""
+    __tablename__ = "dtwin_anomalies"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    source = Column(String, nullable=False)
+    anomaly_type = Column(String, nullable=False)
+    severity = Column(String, nullable=False, default="medium")
+    description = Column(Text, nullable=True)
+    affected_components = Column(JSON, default=list)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    detected_at = Column(DateTime(timezone=True), default=utcnow)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class DTwinMetric(Base):
+    """Aggregated metrics for the digital twin"""
+    __tablename__ = "dtwin_metrics"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    metric_name = Column(String, nullable=False)
+    metric_value = Column(String, nullable=False)
+    dimensions = Column(JSON, default=dict)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    timestamp = Column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        Index("idx_metric_name_time", "metric_name", "timestamp"),
     )

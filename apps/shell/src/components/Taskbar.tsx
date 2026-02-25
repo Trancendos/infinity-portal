@@ -18,11 +18,14 @@ interface TaskbarProps {
 }
 
 const PINNED_APPS = [
-  { moduleId: 'com.infinity-os.file-manager', title: 'File Manager', icon: '📁' },
-  { moduleId: 'com.infinity-os.text-editor',  title: 'Text Editor',  icon: '📝' },
-  { moduleId: 'com.infinity-os.terminal',     title: 'Terminal',     icon: '⌨️' },
-  { moduleId: 'com.infinity-os.app-store',    title: 'App Store',    icon: '🏪' },
-  { moduleId: 'com.infinity-os.settings',     title: 'Settings',     icon: '⚙️' },
+  { moduleId: 'com.infinity-os.itsm',         title: 'ITSM',          icon: '🎫' },
+  { moduleId: 'com.infinity-os.kanban',        title: 'Task Board',    icon: '📋' },
+  { moduleId: 'com.infinity-os.gates',         title: 'Project Gates', icon: '🚦' },
+  { moduleId: 'com.infinity-os.documents',     title: 'Documents',     icon: '📚' },
+  { moduleId: 'com.infinity-os.dependencies',  title: 'Dependencies',  icon: '🗺' },
+  { moduleId: 'com.infinity-os.file-manager',  title: 'Files',         icon: '📁' },
+  { moduleId: 'com.infinity-os.terminal',      title: 'Terminal',      icon: '⌨️' },
+  { moduleId: 'com.infinity-os.settings',      title: 'Settings',      icon: '⚙️' },
 ];
 
 function Clock() {

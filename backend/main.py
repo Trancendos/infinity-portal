@@ -208,6 +208,7 @@ from routers import (
     auth, ai, compliance, users, organisations, files,
     repositories, build, federation, websocket_router, kanban,
     integrations, appstore, notifications,
+    itsm, gates, documents, assets, kb, deps,
 )
 
 app.include_router(auth.router)
@@ -224,6 +225,14 @@ app.include_router(integrations.router)
 app.include_router(appstore.router)
 app.include_router(notifications.router)
 app.include_router(websocket_router.router)
+
+# Project & IT Management System routers
+app.include_router(itsm.router)
+app.include_router(gates.router)
+app.include_router(documents.router)
+app.include_router(assets.router)
+app.include_router(kb.router)
+app.include_router(deps.router)
 
 
 # ============================================================
