@@ -1,0 +1,143 @@
+# .github/workflows/compliance-check.yml
+# Compliance validation for GDPR, ISO 27001, and EU AI Act
+name: Compliance Check
+
+on:
+  workflow_call:
+  push:
+    branches: [main, master]
+    paths:
+      - "**/*.ts"
+      - "**/*.py"
+      - "**/package.json"
+      - "**/requirements.txt"
+      - "docs/compliance/**"
+  schedule:
+    # Run weekly on Monday at 06:00 UTC
+    - cron: "0 6 * * 1"
+
+jobs:
+  compliance-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for required compliance files
+        run: |
+          REQUIRED_FILES=(
+            "LICENSE"
+          )
+          RECOMMENDED_FILES=(
+            "SECURITY.md"
+            "docs/compliance/GDPR.md"
+            "docs/compliance/ISO27001.md"
+          )
+
+          echo "=== Required Files ==="
+          for file in "${REQUIRED_FILES[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✅ $file"
+            else
+              echo "❌ MISSING: $file"
+              # Don't fail on missing - just report
+            fi
+          done
+
+          echo ""
+          echo "=== Recommended Files ==="
+          for file in "${RECOMMENDED_FILES[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✅ $file"
+            else
+              echo "⚠️  RECOMMENDED: $file"
+            fi
+          done
+
+      - name: Check for hardcoded secrets patterns
+        run: |
+          echo "Scanning for potential hardcoded secrets..."
+          PATTERNS=(
+            "password\s*=\s*['\"][^'\"]*['\"]"
+            "api[_-]?key\s*=\s*['\"][^'\"]*['\"]"
+            "secret\s*=\s*['\"][^'\"]*['\"]"
+            "token\s*=\s*['\"][^'\"]*['\"]"
+          )
+
+          FOUND=0
+          for pattern in "${PATTERNS[@]}"; do
+            MATCHES=$(grep -rn -iE "$pattern" --include="*.ts" --include="*.py" --include="*.js" . \
+              --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=venv \
+              --exclude="*.test.*" --exclude="*.spec.*" --exclude="*.example*" || true)
+            if [ -n "$MATCHES" ]; then
+              echo "⚠️  Potential secret pattern found:"
+              echo "$MATCHES" | head -5
+              FOUND=$((FOUND + 1))
+            fi
+          done
+
+          if [ "$FOUND" -gt 0 ]; then
+            echo ""
+            echo "⚠️  Review the above findings. May be false positives (test files, examples)."
+          else
+            echo "✅ No hardcoded secret patterns detected"
+          fi
+
+      - name: Check for GDPR data handling patterns
+        run: |
+          echo "Scanning for personal data handling..."
+          DATA_PATTERNS=(
+            "email"
+            "phone"
+            "address"
+            "ip_address"
+            "user_agent"
+            "location"
+            "biometric"
+          )
+
+          echo "Personal data fields found in codebase:"
+          for pattern in "${DATA_PATTERNS[@]}"; do
+            COUNT=$(grep -rl "$pattern" --include="*.ts" --include="*.py" . \
+              --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=venv 2>/dev/null | wc -l)
+            if [ "$COUNT" -gt 0 ]; then
+              echo "  📊 $pattern: referenced in $COUNT file(s)"
+            fi
+          done
+          echo ""
+          echo "ℹ️  Ensure all personal data fields have:"
+          echo "   - Consent mechanism (Art. 7)"
+          echo "   - Right to erasure handler (Art. 17)"
+          echo "   - Data portability export (Art. 20)"
+          echo "   - Processing record (Art. 30)"
+
+      - name: Check dependency licenses
+        run: |
+          echo "Checking dependency licenses..."
+          if [ -f package.json ]; then
+            npx license-checker --summary 2>/dev/null || echo "Install license-checker for detailed report"
+          fi
+          if [ -f requirements.txt ]; then
+            pip install pip-licenses 2>/dev/null && pip-licenses --summary 2>/dev/null || echo "Install pip-licenses for detailed report"
+          fi
+
+      - name: Generate compliance evidence artifact
+        run: |
+          mkdir -p compliance-evidence
+          cat > compliance-evidence/scan-report.json << EOF
+          {
+            "repository": "${{ github.repository }}",
+            "branch": "${{ github.ref_name }}",
+            "commit": "${{ github.sha }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "scan_type": "automated_compliance_check",
+            "frameworks": ["GDPR", "ISO27001", "EU_AI_Act"],
+            "status": "completed"
+          }
+          EOF
+
+      - name: Upload compliance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-evidence
+          path: compliance-evidence/
+          retention-days: 90

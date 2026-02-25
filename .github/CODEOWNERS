@@ -1,0 +1,21 @@
+# CODEOWNERS - Define code ownership for review routing
+# Copy to each repository's root
+
+# Default: Drew owns everything
+*                          @Trancendos
+
+# Infrastructure & security get extra scrutiny
+/workers/                  @Trancendos
+/packages/policy-engine/   @Trancendos
+/packages/auth/            @Trancendos
+*.env*                     @Trancendos
+*secret*                   @Trancendos
+*credential*               @Trancendos
+Dockerfile                 @Trancendos
+docker-compose*.yml        @Trancendos
+
+# CI/CD
+.github/                   @Trancendos
+
+# Compliance documentation
+docs/compliance/           @Trancendos
