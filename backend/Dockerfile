@@ -1,36 +1,35 @@
-# Dockerfile - Production-ready container
-FROM python:3.11-slim AS base
-
-WORKDIR /app
+# Dockerfile — Infinity OS Backend
+FROM python:3.12-slim AS base
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    postgresql-client \
+    git \
     curl \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install requirements first (layer caching)
+# Create non-root user
+RUN groupadd -r infinity && useradd -r -g infinity -m infinity
+
+WORKDIR /app
+
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
 
-# Create non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
+# Create data directories
+RUN mkdir -p /data/files /data/repos /data/builds && \
+    chown -R infinity:infinity /data /app
+
+USER infinity
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
 
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-# Run with gunicorn + uvicorn workers in production
-CMD ["gunicorn", "main:app", \
-     "--bind", "0.0.0.0:8000", \
-     "--worker-class", "uvicorn.workers.UvicornWorker", \
-     "--workers", "2", \
-     "--timeout", "120", \
-     "--access-logfile", "-"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

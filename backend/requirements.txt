@@ -1,22 +1,31 @@
-# requirements.txt - Production dependencies
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-sqlalchemy[asyncio]==2.0.23
-asyncpg==0.29.0
-psycopg2-binary==2.9.9
-alembic==1.12.1
-pydantic[email]==2.5.0
-python-jose[cryptography]==3.3.0
-bcrypt==4.1.2
-python-multipart==0.0.6
-python-dotenv==1.0.0
-httpx==0.25.2
+# Infinity OS Backend Dependencies
+# Core
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic[email]==2.10.4
 
-# Production
-gunicorn==21.2.0
+# Database
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+alembic==1.14.1
+
+# Auth
+bcrypt==4.2.1
+python-jose[cryptography]==3.3.0
+
+# HTTP
+httpx==0.28.1
+aiohttp==3.11.11
+
+# Utilities
+python-multipart==0.0.20
+python-dotenv==1.0.1
+orjson==3.10.13
 
 # Testing
-pytest==7.4.3
-pytest-asyncio==0.21.1
-pytest-cov==4.1.0
-aiosqlite==0.19.0
+pytest==8.3.4
+pytest-asyncio==0.25.0
+httpx==0.28.1
+
+# Observability
+structlog==24.4.0

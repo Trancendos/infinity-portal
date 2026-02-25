@@ -1,39 +1,107 @@
-# docker-compose.yml - Local development
-version: '3.8'
+# docker-compose.yml — Full Infinity OS stack
+version: "3.9"
 
 services:
-  postgres:
-    image: postgres:15-alpine
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: infinity_os
-      POSTGRES_PASSWORD: secure_password
       POSTGRES_DB: infinity_os
+      POSTGRES_USER: infinity
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-infinity_dev_2026}
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
+      - ../database/schema/001_core.sql:/docker-entrypoint-initdb.d/001_core.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U infinity_os"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "pg_isready -U infinity -d infinity_os"]
+      interval: 5s
+      timeout: 3s
       retries: 5
 
+  # Redis (Valkey) — Caching, rate limiting, sessions
+  redis:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Backend API
   api:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://infinity_os:secure_password@postgres/infinity_os
-      JWT_SECRET_KEY: dev-secret-key-change-in-production
-      ENVIRONMENT: development
-      CORS_ORIGINS: http://localhost:3000,http://localhost:8000
-      LOG_LEVEL: INFO
-    depends_on:
-      postgres:
-        condition: service_healthy
+      DATABASE_URL: postgresql+asyncpg://infinity:${DB_PASSWORD:-infinity_dev_2026}@db:5432/infinity_os
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-in-production}
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173,http://localhost:8080
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      FILE_STORAGE_ROOT: /data/files
+      GIT_STORAGE_ROOT: /data/repos
+      BUILD_OUTPUT_ROOT: /data/builds
     volumes:
-      - .:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      - filedata:/data/files
+      - repodata:/data/repos
+      - builddata:/data/builds
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Frontend Shell (development)
+  shell:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_BACKEND_API_URL: http://localhost:8000
+      VITE_WS_URL: ws://localhost:8000
+    volumes:
+      - ../apps/shell:/app
+      - shell_modules:/app/node_modules
+    depends_on:
+      - api
+
+  # Alembic migrations (run once)
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: alembic upgrade head
+    environment:
+      DATABASE_URL: postgresql+asyncpg://infinity:${DB_PASSWORD:-infinity_dev_2026}@db:5432/infinity_os
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - migrate
 
 volumes:
-  postgres_data:
+  pgdata:
+  redisdata:
+  filedata:
+  repodata:
+  builddata:
+  shell_modules:

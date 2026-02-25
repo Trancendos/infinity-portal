@@ -1,0 +1,73 @@
+{
+  "managedBy": "infinity-os-governance-v1",
+  "schemaVersion": "1.0.0",
+  "repositoryType": "platform-core",
+  "lifecycleCoverage": {
+    "built": true,
+    "implemented": true,
+    "designed": true,
+    "discovered": true,
+    "maintained": true
+  },
+  "standards": {
+    "modularDesign": {
+      "required": true,
+      "status": "in_place",
+      "controls": [
+        "bounded-context ownership",
+        "contract-first interfaces (OpenAPI + TypeScript types)",
+        "versioned integration boundaries (/api/v1/)",
+        "module federation for frontend"
+      ]
+    },
+    "fluidicDynamicEnvironment": {
+      "required": true,
+      "status": "in_place",
+      "controls": [
+        "feature flags via org settings",
+        "blue-green deployment via Cloudflare",
+        "runtime configuration via environment variables"
+      ]
+    },
+    "adaptiveUxUi": {
+      "required": true,
+      "status": "in_place",
+      "controls": [
+        "responsive breakpoints (320px-1920px)",
+        "accessibility checks (WCAG 2.1 AA)",
+        "feedback telemetry via audit logs"
+      ]
+    },
+    "zeroCostOptimization": {
+      "required": true,
+      "status": "in_place",
+      "controls": [
+        "free-tier-first design (Neon, Koyeb, Cloudflare)",
+        "cost guardrails via build system",
+        "monthly usage review via compliance dashboard"
+      ]
+    },
+    "legalEthicalGlobalCompliance": {
+      "required": true,
+      "status": "in_place",
+      "controls": [
+        "EU AI Act compliance (Art. 9, 14, 50)",
+        "GDPR consent management",
+        "ISO 27001 control mapping",
+        "C2PA content provenance"
+      ]
+    },
+    "securityByDefault": {
+      "required": true,
+      "status": "in_place",
+      "controls": [
+        "JWT with JTI revocation",
+        "5-tier RBAC with fine-grained permissions",
+        "bcrypt password hashing (12 rounds)",
+        "security headers middleware",
+        "brute force protection",
+        "audit logging on all operations"
+      ]
+    }
+  }
+}
