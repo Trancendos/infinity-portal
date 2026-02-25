@@ -1,0 +1,28 @@
+name: 'Verify Repository Redirects'
+on:
+  push:
+    paths: ['indexed_repositories.json']
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+      - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8
+        with:
+          node-version: '20'
+      - name: Run redirect verification
+        run: node scripts/verify-redirects.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: redirect-check-results
+          path: redirect-check-results.json
+          retention-days: 90

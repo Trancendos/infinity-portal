@@ -15,6 +15,9 @@ const FileManager = lazy(() => import('../modules/FileManager'));
 const AIStudio = lazy(() => import('../modules/AIStudio'));
 const Settings = lazy(() => import('../modules/Settings'));
 const Terminal = lazy(() => import('../modules/Terminal'));
+const IntegrationHub = lazy(() => import('../modules/IntegrationHub'));
+const AppStore = lazy(() => import('../modules/AppStore'));
+const NotificationCentre = lazy(() => import('../modules/NotificationCentre'));
 
 interface WindowProps {
   id: string;
@@ -76,6 +79,9 @@ function ModuleRenderer({ moduleId }: { moduleId: string }) {
     'com.infinity-os.terminal': <Terminal />,
     'com.infinity-os.settings': <Settings />,
     'com.infinity-os.ai-studio': <AIStudio />,
+    'com.infinity-os.integrations': <IntegrationHub />,
+    'com.infinity-os.appstore': <AppStore />,
+    'com.infinity-os.notifications': <NotificationCentre />,
 
     // Placeholder modules (to be implemented)
     'com.infinity-os.text-editor': <PlaceholderModule name="Text Editor" icon="📝" />,
@@ -183,6 +189,9 @@ export const MODULE_REGISTRY = [
   { id: 'com.infinity-os.text-editor', name: 'Editor', icon: '📝', category: 'productivity' },
   { id: 'com.infinity-os.terminal', name: 'Terminal', icon: '💻', category: 'development' },
   { id: 'com.infinity-os.ai-studio', name: 'AI Studio', icon: '🤖', category: 'ai' },
+  { id: 'com.infinity-os.integrations', name: 'Integrations', icon: '🔗', category: 'system' },
+  { id: 'com.infinity-os.appstore', name: 'App Store', icon: '🏪', category: 'system' },
+  { id: 'com.infinity-os.notifications', name: 'Notifications', icon: '🔔', category: 'system' },
   { id: 'com.infinity-os.settings', name: 'Settings', icon: '⚙️', category: 'system' },
   { id: 'com.infinity-os.browser', name: 'Browser', icon: '🌐', category: 'productivity' },
 ];

@@ -378,6 +378,59 @@ export function useKanban() {
   };
 }
 
+
+// --- Hook: Integrations ---
+
+export function useIntegrations() {
+  const { apiCall } = useBackend();
+  return {
+    listConnectors: () => apiCall('/api/v1/integrations/connectors'),
+    getConnector: (id: string) => apiCall(`/api/v1/integrations/connectors/${id}`),
+    createConnector: (data: any) => apiCall('/api/v1/integrations/connectors', { method: 'POST', body: JSON.stringify(data) }),
+    updateConnector: (id: string, data: any) => apiCall(`/api/v1/integrations/connectors/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    deleteConnector: (id: string) => apiCall(`/api/v1/integrations/connectors/${id}`, { method: 'DELETE' }),
+    checkHealth: (id: string) => apiCall(`/api/v1/integrations/connectors/${id}/health`, { method: 'POST' }),
+    listTemplates: () => apiCall('/api/v1/integrations/templates'),
+    installTemplate: (slug: string) => apiCall(`/api/v1/integrations/connectors/from-template/${slug}`, { method: 'POST', body: '{}' }),
+  };
+}
+
+// --- Hook: App Store ---
+
+export function useAppStore() {
+  const { apiCall } = useBackend();
+  return {
+    listListings: (params?: Record<string, string>) => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return apiCall(`/api/v1/appstore/listings${qs}`);
+    },
+    getCategories: () => apiCall('/api/v1/appstore/categories'),
+    submitModule: (data: any) => apiCall('/api/v1/appstore/submit', { method: 'POST', body: JSON.stringify(data) }),
+    installModule: (moduleId: string) => apiCall(`/api/v1/appstore/install/${moduleId}`, { method: 'POST', body: '{}' }),
+    uninstallModule: (moduleId: string) => apiCall(`/api/v1/appstore/uninstall/${moduleId}`, { method: 'DELETE' }),
+    getInstalled: () => apiCall('/api/v1/appstore/installed'),
+    getStats: () => apiCall('/api/v1/appstore/stats'),
+  };
+}
+
+// --- Hook: Notifications ---
+
+export function useNotifications() {
+  const { apiCall } = useBackend();
+  return {
+    list: (params?: Record<string, string>) => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return apiCall(`/api/v1/notifications${qs}`);
+    },
+    count: () => apiCall('/api/v1/notifications/count'),
+    markRead: (id: string) => apiCall(`/api/v1/notifications/${id}/read`, { method: 'POST' }),
+    markAllRead: () => apiCall('/api/v1/notifications/read-all', { method: 'POST' }),
+    create: (data: any) => apiCall('/api/v1/notifications', { method: 'POST', body: JSON.stringify(data) }),
+    delete: (id: string) => apiCall(`/api/v1/notifications/${id}`, { method: 'DELETE' }),
+    clearRead: () => apiCall('/api/v1/notifications', { method: 'DELETE' }),
+  };
+}
+
 // --- Hook: WebSocket ---
 
 export function useWebSocket() {

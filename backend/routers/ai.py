@@ -75,15 +75,65 @@ def _detect_risk(task_type: str, system_record: Optional[AISystemRecord] = None)
     return False
 
 
-async def _simulate_llm_call(prompt: str, model: Optional[str] = None) -> Dict[str, str]:
-    """Placeholder for actual LLM orchestration layer.
-    Replace with real provider calls (OpenAI, Anthropic, Groq, local Llama, etc.)
-    TODO: Wire to real LLM providers via environment config
-    """
-    return {
-        "content": f"Generated response for: {prompt[:200]}...",
-        "model_used": model or "qwen-2.5-coder-32b",
-    }
+import os as _os
+import logging as _logging
+import httpx as _httpx
+
+_logger = _logging.getLogger("infinity-os.ai")
+
+LLM_PROVIDERS = {
+    "openai": {"base_url": "https://api.openai.com/v1", "env_key": "OPENAI_API_KEY", "default_model": "gpt-4o-mini", "models": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"]},
+    "groq": {"base_url": "https://api.groq.com/openai/v1", "env_key": "GROQ_API_KEY", "default_model": "llama-3.3-70b-versatile", "models": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"]},
+    "anthropic": {"base_url": "https://api.anthropic.com/v1", "env_key": "ANTHROPIC_API_KEY", "default_model": "claude-3-5-sonnet-20241022", "models": ["claude-3-5-sonnet-20241022", "claude-3-haiku-20240307"]},
+    "huggingface": {"base_url": "https://api-inference.huggingface.co/models", "env_key": "HF_API_KEY", "default_model": "mistralai/Mistral-7B-Instruct-v0.3", "models": ["mistralai/Mistral-7B-Instruct-v0.3"]},
+    "local": {"base_url": _os.getenv("LOCAL_LLM_URL", "http://localhost:11434/v1"), "env_key": None, "default_model": "qwen2.5-coder:32b", "models": ["qwen2.5-coder:32b", "llama3.1:8b"]},
+}
+PREFERRED_PROVIDER = _os.getenv("LLM_PROVIDER", "").lower()
+
+def _resolve_provider(model=None):
+    if model:
+        for pk, pc in LLM_PROVIDERS.items():
+            if model in pc["models"]:
+                ak = _os.getenv(pc["env_key"]) if pc["env_key"] else "local"
+                if ak: return pk, pc, model, ak
+    if PREFERRED_PROVIDER and PREFERRED_PROVIDER in LLM_PROVIDERS:
+        pc = LLM_PROVIDERS[PREFERRED_PROVIDER]
+        ak = _os.getenv(pc["env_key"]) if pc["env_key"] else "local"
+        if ak: return PREFERRED_PROVIDER, pc, model or pc["default_model"], ak
+    for pk in ["groq", "openai", "anthropic", "huggingface", "local"]:
+        pc = LLM_PROVIDERS[pk]
+        ak = _os.getenv(pc["env_key"]) if pc["env_key"] else ("local" if pk == "local" else None)
+        if ak: return pk, pc, model or pc["default_model"], ak
+    return "stub", {}, model or "stub-model", None
+
+async def _call_llm(prompt: str, model: Optional[str] = None, parameters: Optional[Dict] = None) -> Dict[str, str]:
+    """Multi-provider LLM call with automatic fallback."""
+    pkey, pcfg, model_name, api_key = _resolve_provider(model)
+    if pkey == "stub" or not api_key:
+        return {"content": f"[Stub] Generated response for: {prompt[:200]}...", "model_used": model_name}
+    try:
+        if pkey == "anthropic":
+            async with _httpx.AsyncClient(timeout=60) as client:
+                resp = await client.post(f"{pcfg['base_url']}/messages", headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                    json={"model": model_name, "max_tokens": (parameters or {}).get("max_tokens", 4096), "messages": [{"role": "user", "content": prompt}]})
+                data = resp.json()
+                return {"content": data.get("content", [{}])[0].get("text", ""), "model_used": model_name}
+        elif pkey == "huggingface":
+            async with _httpx.AsyncClient(timeout=60) as client:
+                resp = await client.post(f"{pcfg['base_url']}/{model_name}", headers={"Authorization": f"Bearer {api_key}"},
+                    json={"inputs": prompt, "parameters": {"max_new_tokens": (parameters or {}).get("max_tokens", 1024)}})
+                data = resp.json()
+                text = data[0].get("generated_text", "") if isinstance(data, list) else str(data)
+                return {"content": text, "model_used": model_name}
+        else:
+            async with _httpx.AsyncClient(timeout=60) as client:
+                resp = await client.post(f"{pcfg['base_url']}/chat/completions", headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={"model": model_name, "messages": [{"role": "user", "content": prompt}], "max_tokens": (parameters or {}).get("max_tokens", 4096), "temperature": (parameters or {}).get("temperature", 0.7)})
+                data = resp.json()
+                return {"content": data.get("choices", [{}])[0].get("message", {}).get("content", ""), "model_used": model_name}
+    except Exception as e:
+        _logger.warning(f"LLM call failed ({pkey}/{model_name}): {e}")
+        return {"content": f"[Fallback] Generated response for: {prompt[:200]}...", "model_used": f"{model_name} (fallback)"}
 
 
 # --- Endpoints ---
@@ -112,7 +162,7 @@ async def generate_ai_content(
         # --- HITL Gate ---
         if is_high_risk:
             # Generate proposed output but do NOT return it to the caller
-            llm_result = await _simulate_llm_call(request.prompt, request.model)
+            llm_result = await _call_llm(request.prompt, request.model, request.parameters if hasattr(request, 'parameters') else None)
 
             task = HITLTask(
                 system_id=request.system_id,
@@ -156,7 +206,7 @@ async def generate_ai_content(
             )
 
         # --- Standard Path (Minimal / Limited Risk) ---
-        llm_result = await _simulate_llm_call(request.prompt, request.model)
+        llm_result = await _call_llm(request.prompt, request.model, request.parameters if hasattr(request, 'parameters') else None)
 
         governance_decision = {
             "allowed": True,
@@ -353,3 +403,14 @@ async def get_provenance_manifest(
         "manifest_data": manifest.manifest_data,
         "created_at": manifest.created_at,
     }
+
+
+@router.get("/providers")
+async def list_providers(user: CurrentUser = Depends(get_current_user)):
+    """List available LLM providers and their status."""
+    providers = []
+    for pkey, pcfg in LLM_PROVIDERS.items():
+        api_key = _os.getenv(pcfg.get("env_key", "")) if pcfg.get("env_key") else ("local" if pkey == "local" else None)
+        providers.append({"id": pkey, "name": pkey.title(), "available": bool(api_key), "models": pcfg.get("models", []), "default_model": pcfg.get("default_model")})
+    active_key, _, active_model, _ = _resolve_provider()
+    return {"providers": providers, "active_provider": active_key, "active_model": active_model}

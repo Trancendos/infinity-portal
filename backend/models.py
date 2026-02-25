@@ -901,3 +901,125 @@ class TaskAttachment(Base):
 
     task = relationship("Task", back_populates="attachments")
     uploader = relationship("User")
+
+# ============================================================
+# API INTEGRATION HUB
+# ============================================================
+
+class ConnectorStatus(str, PyEnum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    ERROR = "error"
+    PENDING_AUTH = "pending_auth"
+    RATE_LIMITED = "rate_limited"
+
+
+class ConnectorAuthType(str, PyEnum):
+    API_KEY = "api_key"
+    OAUTH2 = "oauth2"
+    BEARER = "bearer"
+    BASIC = "basic"
+    WEBHOOK_SECRET = "webhook_secret"
+    NONE = "none"
+
+
+class WebhookEventType(str, PyEnum):
+    INCOMING = "incoming"
+    OUTGOING = "outgoing"
+
+
+class IntegrationConnector(Base):
+    """External API integration connector"""
+    __tablename__ = "integration_connectors"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    organisation_id = Column(String, ForeignKey("organisations.id"), nullable=False, index=True)
+    created_by = Column(String, ForeignKey("users.id"), nullable=False)
+
+    name = Column(String, nullable=False)
+    slug = Column(String, nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    icon_url = Column(String, nullable=True)
+    category = Column(String, nullable=False, default="general", index=True)
+
+    base_url = Column(String, nullable=False)
+    auth_type = Column(SQLEnum(ConnectorAuthType), default=ConnectorAuthType.BEARER)
+    auth_config = Column(JSON, default=dict)
+    headers = Column(JSON, default=dict)
+    rate_limit_rpm = Column(Integer, default=60)
+
+    status = Column(SQLEnum(ConnectorStatus), default=ConnectorStatus.INACTIVE)
+    last_health_check = Column(DateTime(timezone=True), nullable=True)
+    last_error = Column(Text, nullable=True)
+    request_count = Column(BigInteger, default=0)
+    error_count = Column(BigInteger, default=0)
+
+    capabilities = Column(JSON, default=list)
+    supported_events = Column(JSON, default=list)
+    config_schema = Column(JSON, default=dict)
+    user_config = Column(JSON, default=dict)
+
+    is_built_in = Column(Boolean, default=False)
+    is_sandboxed = Column(Boolean, default=True)
+    version = Column(String, default="1.0.0")
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("idx_connector_org_slug", "organisation_id", "slug"),
+    )
+
+
+class WebhookEndpoint(Base):
+    """Webhook endpoint for integration connectors"""
+    __tablename__ = "webhook_endpoints"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    connector_id = Column(String, ForeignKey("integration_connectors.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    event_type = Column(SQLEnum(WebhookEventType), default=WebhookEventType.INCOMING)
+    url = Column(String, nullable=True)
+    path_suffix = Column(String, nullable=True, unique=True, index=True)
+    hmac_secret = Column(String, nullable=True)
+
+    is_active = Column(Boolean, default=True)
+    event_filters = Column(JSON, default=list)
+    headers = Column(JSON, default=dict)
+    max_retries = Column(Integer, default=3)
+    retry_delay_seconds = Column(Integer, default=60)
+
+    trigger_count = Column(BigInteger, default=0)
+    failure_count = Column(BigInteger, default=0)
+    last_triggered = Column(DateTime(timezone=True), nullable=True)
+    last_error = Column(Text, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class WebhookDelivery(Base):
+    """Audit log for webhook deliveries"""
+    __tablename__ = "webhook_deliveries"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    webhook_id = Column(String, ForeignKey("webhook_endpoints.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    event_type = Column(String, nullable=False)
+    payload_hash = Column(String, nullable=True)
+    request_headers = Column(JSON, default=dict)
+    response_status = Column(Integer, nullable=True)
+    response_body = Column(Text, nullable=True)
+    latency_ms = Column(Integer, nullable=True)
+    success = Column(Boolean, default=False)
+    error_message = Column(Text, nullable=True)
+    attempt_number = Column(Integer, default=1)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        Index("idx_delivery_webhook_time", "webhook_id", "created_at"),
+    )

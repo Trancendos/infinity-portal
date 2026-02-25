@@ -168,7 +168,11 @@ async def global_exception_handler(request: Request, exc: Exception):
 # ROUTERS
 # ============================================================
 
-from routers import auth, ai, compliance, users, organisations, files, repositories, build, federation, websocket_router, kanban
+from routers import (
+    auth, ai, compliance, users, organisations, files,
+    repositories, build, federation, websocket_router, kanban,
+    integrations, appstore, notifications,
+)
 
 app.include_router(auth.router)
 app.include_router(ai.router)
@@ -180,6 +184,9 @@ app.include_router(repositories.router)
 app.include_router(build.router)
 app.include_router(federation.router)
 app.include_router(kanban.router)
+app.include_router(integrations.router)
+app.include_router(appstore.router)
+app.include_router(notifications.router)
 app.include_router(websocket_router.router)
 
 
