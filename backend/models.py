@@ -476,7 +476,7 @@ class FileNode(Base):
     version = Column(Integer, default=1)
     content_text = Column(Text, nullable=True)  # Extracted text for search
     acl = Column(JSON, default=list)
-    metadata = Column(JSON, default=dict)
+    extra_data = Column(JSON, default=dict)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
@@ -593,7 +593,7 @@ class Notification(Base):
     channels = Column(JSON, default=lambda: ["in-app"])
     read_at = Column(DateTime(timezone=True), nullable=True)
     source_module = Column(String, nullable=True)
-    metadata = Column(JSON, default=dict)
+    extra_data = Column(JSON, default=dict)
     created_at = Column(DateTime(timezone=True), default=utcnow, index=True)
     expires_at = Column(DateTime(timezone=True), nullable=True)
 
@@ -717,7 +717,7 @@ class FederatedService(Base):
     status = Column(String, default="active")  # "active", "degraded", "offline"
     capabilities = Column(JSON, default=list)
     last_health_check = Column(DateTime(timezone=True), nullable=True)
-    metadata = Column(JSON, default=dict)
+    extra_data = Column(JSON, default=dict)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
@@ -874,7 +874,7 @@ class TaskHistory(Base):
     field_name = Column(String, nullable=True)  # Which field changed
     old_value = Column(Text, nullable=True)
     new_value = Column(Text, nullable=True)
-    metadata = Column(JSON, default=dict)
+    extra_data = Column(JSON, default=dict)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     # Relationships

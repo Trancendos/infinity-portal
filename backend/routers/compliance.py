@@ -1,6 +1,6 @@
-# routers/compliance.py - Compliance management endpoints
+# routers/compliance.py — Compliance management endpoints (v3.0)
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any
 from enum import Enum as PyEnum
 
@@ -9,11 +9,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth import get_current_user, require_admin_role, CurrentUser
+from auth import get_current_user, require_min_role, require_permission, CurrentUser
 from database import get_db_session
 from models import (
-    AISystemRecord, AuditLog, AuditEventType, RiskLevel,
-    DPIARecord, ProvenanceManifest, HITLTask, TaskStatus,
+    AISystemRecord, AuditLog, AuditEventType, RiskLevel, UserRole,
+    DPIARecord, ProvenanceManifest, HITLTask, TaskStatus, utcnow,
 )
 
 router = APIRouter(prefix="/api/v1/compliance", tags=["Compliance"])
@@ -58,7 +58,7 @@ class ModelMetadata(BaseModel):
 class ComplianceManifest(BaseModel):
     """Annex IV Technical Documentation Manifest"""
     manifest_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=utcnow)
     system_name: str = "Infinity OS"
     intended_purpose: str
     risk_level: RiskCategory
@@ -137,10 +137,10 @@ async def perform_risk_assessment(
 @router.post("/systems")
 async def register_ai_system(
     system_data: AISystemCreate,
-    user: CurrentUser = Depends(require_admin_role),
+    user: CurrentUser = Depends(require_min_role(UserRole.ORG_ADMIN)),
     db: AsyncSession = Depends(get_db_session),
 ):
-    """Register a new AI system for governance tracking"""
+    """Register a new AI system for governance tracking (org_admin+ required)"""
     # Validate risk level
     try:
         risk = RiskLevel(system_data.risk_level)
@@ -250,10 +250,12 @@ async def query_audit_logs(
 @router.post("/dpia")
 async def create_dpia(
     dpia_data: DPIACreate,
-    user: CurrentUser = Depends(require_admin_role),
+    user: CurrentUser = Depends(require_min_role(UserRole.ORG_ADMIN)),
     db: AsyncSession = Depends(get_db_session),
 ):
-    """Create a Data Protection Impact Assessment for an AI system"""
+    """Create a Data Protection Impact Assessment for an AI system (org_admin+ required)"""
+    now = utcnow()
+
     # Verify system exists
     stmt = select(AISystemRecord).where(
         AISystemRecord.id == dpia_data.system_id,
@@ -277,7 +279,7 @@ async def create_dpia(
     system.dpia_details = {
         "dpia_id": record.id,
         "status": "PENDING",
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": now.isoformat(),
     }
     db.add(system)
 
@@ -304,10 +306,12 @@ async def create_dpia(
 @router.patch("/dpia/{dpia_id}/approve")
 async def approve_dpia(
     dpia_id: str,
-    user: CurrentUser = Depends(require_admin_role),
+    user: CurrentUser = Depends(require_min_role(UserRole.ORG_ADMIN)),
     db: AsyncSession = Depends(get_db_session),
 ):
-    """Approve a DPIA record"""
+    """Approve a DPIA record (org_admin+ required)"""
+    now = utcnow()
+
     stmt = select(DPIARecord).where(DPIARecord.id == dpia_id)
     result = await db.execute(stmt)
     record = result.scalar_one_or_none()
@@ -316,7 +320,7 @@ async def approve_dpia(
 
     record.approval_status = "APPROVED"
     record.approved_by = user.id
-    record.approved_at = datetime.utcnow()
+    record.approved_at = now
     db.add(record)
 
     # Mark system DPIA as completed
@@ -337,10 +341,10 @@ async def approve_dpia(
 @router.post("/validate-deployment")
 async def validate_deployment(
     manifest: ComplianceManifest,
-    user: CurrentUser = Depends(require_admin_role),
+    user: CurrentUser = Depends(require_min_role(UserRole.ORG_ADMIN)),
     db: AsyncSession = Depends(get_db_session),
 ):
-    """Validate an AI service deployment against Annex IV requirements"""
+    """Validate an AI service deployment against Annex IV requirements (org_admin+ required)"""
     if manifest.risk_level in (RiskCategory.HIGH, RiskCategory.UNACCEPTABLE):
         if not manifest.human_oversight_measures:
             raise HTTPException(
@@ -369,6 +373,8 @@ async def compliance_dashboard(
     db: AsyncSession = Depends(get_db_session),
 ):
     """Compliance dashboard summary for the organisation"""
+    now = utcnow()
+
     # Count systems by risk level
     systems_stmt = select(AISystemRecord).where(AISystemRecord.organisation_id == user.organisation_id)
     systems_result = await db.execute(systems_stmt)
@@ -383,8 +389,7 @@ async def compliance_dashboard(
     pending_count = hitl_result.scalar() or 0
 
     # Recent audit log count (last 24h)
-    from datetime import timedelta
-    cutoff = datetime.utcnow() - timedelta(hours=24)
+    cutoff = now - timedelta(hours=24)
     audit_stmt = select(func.count(AuditLog.id)).where(
         AuditLog.organisation_id == user.organisation_id,
         AuditLog.timestamp >= cutoff,

@@ -22,10 +22,17 @@ python-multipart==0.0.20
 python-dotenv==1.0.1
 orjson==3.10.13
 
+# Observability
+structlog==24.4.0
+opentelemetry-api>=1.22.0
+opentelemetry-sdk>=1.22.0
+opentelemetry-instrumentation-fastapi>=0.43b0
+opentelemetry-instrumentation-sqlalchemy>=0.43b0
+opentelemetry-instrumentation-httpx>=0.43b0
+opentelemetry-exporter-otlp-proto-grpc>=1.22.0
+
 # Testing
 pytest==8.3.4
 pytest-asyncio==0.25.0
-httpx==0.28.1
-
-# Observability
-structlog==24.4.0
+pytest-cov>=4.1.0
+aiosqlite>=0.19.0

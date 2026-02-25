@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
 from database import init_db, close_db, get_db_session
+from telemetry import setup_telemetry
 
 # Logging
 logging.basicConfig(
@@ -33,6 +34,8 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Starting Infinity OS v3.0...")
     await init_db()
     logger.info("✅ Database initialized")
+    # Initialise OpenTelemetry (no-op if OTEL_EXPORTER_OTLP_ENDPOINT not set)
+    setup_telemetry(app)
     yield
     logger.info("🛑 Shutting down Infinity OS...")
     await close_db()
@@ -123,10 +126,27 @@ async def security_headers_middleware(request: Request, call_next):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # Sanitise errors to ensure JSON serialisability
+    errors = []
+    for err in exc.errors():
+        clean_err = {
+            "type": str(err.get("type", "unknown")),
+            "loc": list(err.get("loc", [])),
+            "msg": str(err.get("msg", "")),
+        }
+        if "input" in err:
+            try:
+                import json
+                json.dumps(err["input"])
+                clean_err["input"] = err["input"]
+            except (TypeError, ValueError):
+                clean_err["input"] = str(err["input"])
+        errors.append(clean_err)
+
     return JSONResponse(
         status_code=422,
         content={
-            "detail": exc.errors(),
+            "detail": errors,
             "request_id": getattr(request.state, "request_id", None),
         },
     )

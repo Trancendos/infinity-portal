@@ -1,7 +1,7 @@
-# routers/ai.py - AI generation with HITL governance
+# routers/ai.py — AI generation with HITL governance (v3.0)
 import uuid
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,11 +9,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth import get_current_user, require_admin_role, CurrentUser
+from auth import get_current_user, require_min_role, require_permission, CurrentUser
 from database import get_db_session
 from models import (
-    AuditLog, AuditEventType, RiskLevel, TaskStatus,
-    HITLTask, AISystemRecord, ProvenanceManifest,
+    AuditLog, AuditEventType, RiskLevel, TaskStatus, UserRole,
+    HITLTask, AISystemRecord, ProvenanceManifest, utcnow,
 )
 
 router = APIRouter(prefix="/api/v1/ai", tags=["AI Generation"])
@@ -77,7 +77,8 @@ def _detect_risk(task_type: str, system_record: Optional[AISystemRecord] = None)
 
 async def _simulate_llm_call(prompt: str, model: Optional[str] = None) -> Dict[str, str]:
     """Placeholder for actual LLM orchestration layer.
-    Replace with real provider calls (OpenAI, Anthropic, local Llama, etc.)
+    Replace with real provider calls (OpenAI, Anthropic, Groq, local Llama, etc.)
+    TODO: Wire to real LLM providers via environment config
     """
     return {
         "content": f"Generated response for: {prompt[:200]}...",
@@ -97,6 +98,7 @@ async def generate_ai_content(
     High-risk tasks are queued for human oversight instead of instant execution.
     """
     request_id = str(uuid.uuid4())
+    now = utcnow()
 
     try:
         # Look up system record (optional enrichment)
@@ -150,7 +152,7 @@ async def generate_ai_content(
                     "hitl_task_id": task.id,
                 },
                 message="High-risk task queued for human oversight.",
-                timestamp=datetime.utcnow(),
+                timestamp=now,
             )
 
         # --- Standard Path (Minimal / Limited Risk) ---
@@ -173,11 +175,11 @@ async def generate_ai_content(
             content_hash=content_hash,
             manifest_data={
                 "model": llm_result["model_used"],
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": now.isoformat(),
                 "prompt_hash": hashlib.sha256(request.prompt.encode()).hexdigest(),
             },
             signing_status="SIGNED",
-            signed_at=datetime.utcnow(),
+            signed_at=now,
         )
         db.add(provenance)
 
@@ -202,7 +204,7 @@ async def generate_ai_content(
             status=TaskStatus.PROCESSED.value,
             governance_decision=governance_decision,
             provenance_manifest_url=f"/api/v1/ai/provenance/{request_id}",
-            timestamp=datetime.utcnow(),
+            timestamp=now,
         )
 
     except HTTPException:
@@ -225,11 +227,11 @@ async def generate_ai_content(
 
 @router.get("/pending-reviews", response_model=List[HITLTaskOut])
 async def list_pending_reviews(
-    user: CurrentUser = Depends(require_admin_role),
+    user: CurrentUser = Depends(require_min_role(UserRole.AUDITOR)),
     db: AsyncSession = Depends(get_db_session),
     limit: int = Query(default=50, le=200),
 ):
-    """List tasks awaiting human oversight (admin/auditor only)"""
+    """List tasks awaiting human oversight (auditor+ role required)"""
     stmt = (
         select(HITLTask)
         .where(
@@ -261,10 +263,10 @@ async def list_pending_reviews(
 async def review_task(
     task_id: str,
     review: ReviewRequest,
-    user: CurrentUser = Depends(require_admin_role),
+    user: CurrentUser = Depends(require_min_role(UserRole.AUDITOR)),
     db: AsyncSession = Depends(get_db_session),
 ):
-    """Approve or reject a high-risk AI task (admin/auditor only).
+    """Approve or reject a high-risk AI task (auditor+ role required).
     Rejection requires a justification comment for Annex IV audit trail.
     """
     stmt = select(HITLTask).where(
@@ -286,11 +288,12 @@ async def review_task(
             detail="Compliance Requirement: Rejections require a justification comment.",
         )
 
+    now = utcnow()
     new_status = TaskStatus.PROCESSED if review.approved else TaskStatus.REJECTED
     task.status = new_status
     task.reviewed_by = user.id
     task.review_comments = review.comments
-    task.reviewed_at = datetime.utcnow()
+    task.reviewed_at = now
 
     # Audit log
     event_type = AuditEventType.HITL_APPROVED if review.approved else AuditEventType.HITL_REJECTED

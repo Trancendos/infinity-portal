@@ -242,7 +242,7 @@ async def _record_history(
         field_name=field_name,
         old_value=old_value,
         new_value=new_value,
-        metadata=metadata or {},
+        extra_data=metadata or {},
     )
     db.add(entry)
 

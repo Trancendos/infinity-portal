@@ -26,7 +26,7 @@ class ServiceOut(BaseModel):
     status: str
     capabilities: list
     last_health_check: Optional[str] = None
-    metadata: dict
+    extra_data: dict = Field(default_factory=dict, alias="extra_data")
     created_at: str
 
 
@@ -66,7 +66,7 @@ def _svc_to_out(s: FederatedService) -> ServiceOut:
         status=s.status or "unknown",
         capabilities=s.capabilities or [],
         last_health_check=s.last_health_check.isoformat() if s.last_health_check else None,
-        metadata=s.metadata or {},
+        extra_data=s.extra_data or {},
         created_at=s.created_at.isoformat() if s.created_at else "",
     )
 
@@ -134,7 +134,7 @@ async def register_service(
         health_check_url=svc_data.health_check_url,
         auth_method=svc_data.auth_method,
         capabilities=svc_data.capabilities,
-        metadata=svc_data.metadata,
+        extra_data=svc_data.metadata,
         status="active",
     )
     db.add(svc)
@@ -188,7 +188,7 @@ async def update_service(
     if update.capabilities is not None:
         svc.capabilities = update.capabilities
     if update.metadata is not None:
-        svc.metadata = {**(svc.metadata or {}), **update.metadata}
+        svc.extra_data = {**(svc.extra_data or {}), **update.metadata}
 
     db.add(svc)
     await db.commit()

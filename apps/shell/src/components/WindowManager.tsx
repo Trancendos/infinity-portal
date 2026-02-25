@@ -11,6 +11,10 @@ const RepositoryManager = lazy(() => import('../modules/RepositoryManager'));
 const BuildManager = lazy(() => import('../modules/BuildManager'));
 const FederationDashboard = lazy(() => import('../modules/FederationDashboard'));
 const KanbanBoard = lazy(() => import('../modules/KanbanBoard'));
+const FileManager = lazy(() => import('../modules/FileManager'));
+const AIStudio = lazy(() => import('../modules/AIStudio'));
+const Settings = lazy(() => import('../modules/Settings'));
+const Terminal = lazy(() => import('../modules/Terminal'));
 
 interface WindowProps {
   id: string;
@@ -67,12 +71,14 @@ function ModuleRenderer({ moduleId }: { moduleId: string }) {
     'com.infinity-os.federation': <FederationDashboard />,
     'com.infinity-os.kanban': <KanbanBoard />,
 
+    // Implemented modules
+    'com.infinity-os.file-manager': <FileManager />,
+    'com.infinity-os.terminal': <Terminal />,
+    'com.infinity-os.settings': <Settings />,
+    'com.infinity-os.ai-studio': <AIStudio />,
+
     // Placeholder modules (to be implemented)
-    'com.infinity-os.file-manager': <PlaceholderModule name="File Manager" icon="📁" />,
     'com.infinity-os.text-editor': <PlaceholderModule name="Text Editor" icon="📝" />,
-    'com.infinity-os.terminal': <PlaceholderModule name="Terminal" icon="💻" />,
-    'com.infinity-os.settings': <PlaceholderModule name="Settings" icon="⚙️" />,
-    'com.infinity-os.ai-studio': <PlaceholderModule name="AI Studio" icon="🤖" />,
     'com.infinity-os.browser': <PlaceholderModule name="Browser" icon="🌐" />,
     'com.infinity-os.media-player': <PlaceholderModule name="Media Player" icon="🎵" />,
     'com.infinity-os.calendar': <PlaceholderModule name="Calendar" icon="📅" />,
