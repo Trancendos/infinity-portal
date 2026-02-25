@@ -29,11 +29,47 @@ logging.basicConfig(
 logger = logging.getLogger("infinity-os")
 
 
+def _check_startup_config():
+    """Validate critical configuration on startup."""
+    warnings = []
+
+    # JWT Secret
+    jwt_key = os.getenv("JWT_SECRET_KEY", "")
+    if not jwt_key or len(jwt_key) < 32 or jwt_key == "generate-a-64-char-random-string-here":
+        warnings.append("⚠️  JWT_SECRET_KEY is not set or insecure — generate one: python -c &quot;import secrets; print(secrets.token_urlsafe(48))&quot;")
+
+    # LLM Providers
+    llm_keys = {
+        "GROQ_API_KEY": os.getenv("GROQ_API_KEY"),
+        "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
+        "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY"),
+        "HF_API_KEY": os.getenv("HF_API_KEY"),
+    }
+    active_providers = [k for k, v in llm_keys.items() if v]
+    if active_providers:
+        logger.info(f"🤖 LLM providers configured: {', '.join(active_providers)}")
+    else:
+        warnings.append("⚠️  No LLM API keys configured — AI generation will use stub responses. Set GROQ_API_KEY or OPENAI_API_KEY in .env")
+
+    # C2PA
+    if os.getenv("C2PA_ENABLED", "false").lower() == "true":
+        if not os.getenv("C2PA_CERT_PATH"):
+            warnings.append("⚠️  C2PA_ENABLED=true but C2PA_CERT_PATH not set — provenance signing disabled")
+        else:
+            logger.info("🔏 C2PA content provenance signing enabled")
+
+    for w in warnings:
+        logger.warning(w)
+
+    return len(warnings) == 0
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 Starting Infinity OS v3.0...")
     await init_db()
     logger.info("✅ Database initialized")
+    _check_startup_config()
     # Initialise OpenTelemetry (no-op if OTEL_EXPORTER_OTLP_ENDPOINT not set)
     setup_telemetry(app)
     yield
