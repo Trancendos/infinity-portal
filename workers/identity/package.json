@@ -19,6 +19,6 @@
     "vitest": "^1.0.0",
     "wrangler": "^3.22.0",
     "@cloudflare/workers-types": "^4.20231218.0",
-    "miniflare": "^3.20231218.0"
+    "miniflare": "^4.20260302.0"
   }
 }
