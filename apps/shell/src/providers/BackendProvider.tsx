@@ -700,4 +700,79 @@ export function useSecurity() {
   };
 }
 
+// ============================================================
+// OBSERVABILITY HOOKS
+// ============================================================
+
+export function useObservability() {
+  const { apiCall } = useBackend();
+  return {
+    getLogs: (params?: Record<string, string>) => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return apiCall(`/api/v1/observability/logs${qs}`);
+    },
+    getLogStats: () => apiCall('/api/v1/observability/logs/stats'),
+    getDashboard: () => apiCall('/api/v1/observability/metrics/dashboard'),
+    getAllMetrics: () => apiCall('/api/v1/observability/metrics'),
+    getAnomalies: (resolved = false) => apiCall(`/api/v1/observability/anomalies?resolved=${resolved}`),
+    detectAnomalies: () => apiCall('/api/v1/observability/anomalies/detect', { method: 'POST' }),
+    resolveAnomaly: (id: string) => apiCall(`/api/v1/observability/anomalies/${id}/resolve`, { method: 'PATCH' }),
+    getUsagePatterns: () => apiCall('/api/v1/observability/metrics/usage-patterns'),
+    recordMetric: (name: string, value: number, labels?: Record<string, string>) =>
+      apiCall('/api/v1/observability/metrics/record', { method: 'POST', body: JSON.stringify({ metric_name: name, value, labels }) }),
+  };
+}
+
+// ============================================================
+// COMPLIANCE FRAMEWORKS HOOKS
+// ============================================================
+
+export function useComplianceFrameworks() {
+  const { apiCall } = useBackend();
+  return {
+    listFrameworks: () => apiCall('/api/v1/compliance-frameworks/frameworks'),
+    listControls: (framework?: string, category?: string) => {
+      const params = new URLSearchParams();
+      if (framework) params.set('framework', framework);
+      if (category) params.set('category', category);
+      return apiCall(`/api/v1/compliance-frameworks/controls?${params}`);
+    },
+    runTests: (state: Record<string, unknown>) =>
+      apiCall('/api/v1/compliance-frameworks/test', { method: 'POST', body: JSON.stringify(state) }),
+    getReport: (framework: string) => apiCall(`/api/v1/compliance-frameworks/report/${framework}`),
+    generateReport: (framework: string, state: Record<string, unknown>) =>
+      apiCall(`/api/v1/compliance-frameworks/report/${framework}`, { method: 'POST', body: JSON.stringify(state) }),
+    getSummary: () => apiCall('/api/v1/compliance-frameworks/summary'),
+    check2060: (data: Record<string, unknown>) =>
+      apiCall('/api/v1/compliance-frameworks/2060/check', { method: 'POST', body: JSON.stringify(data) }),
+    grantConsent: (data: Record<string, unknown>) =>
+      apiCall('/api/v1/compliance-frameworks/2060/consent', { method: 'POST', body: JSON.stringify(data) }),
+    revokeConsent: (token: string) =>
+      apiCall(`/api/v1/compliance-frameworks/2060/consent/${token}`, { method: 'DELETE' }),
+    getResidencyZones: () => apiCall('/api/v1/compliance-frameworks/2060/residency-zones'),
+    getConsentTypes: () => apiCall('/api/v1/compliance-frameworks/2060/consent-types'),
+  };
+}
+
+// ============================================================
+// VULNERABILITY SCANNER HOOKS
+// ============================================================
+
+export function useVulnerabilities() {
+  const { apiCall } = useBackend();
+  return {
+    scan: (manifestContent: string, ecosystem: string, maxPackages = 50) =>
+      apiCall('/api/v1/vulnerabilities/scan', {
+        method: 'POST',
+        body: JSON.stringify({ manifest_content: manifestContent, ecosystem, max_packages: maxPackages }),
+      }),
+    listScans: (limit = 20) => apiCall(`/api/v1/vulnerabilities/scans?limit=${limit}`),
+    getScan: (id: string) => apiCall(`/api/v1/vulnerabilities/scans/${id}`),
+    getRemediationPlan: (scanId: string) => apiCall(`/api/v1/vulnerabilities/scans/${scanId}/remediation`),
+    getSlaPolicy: () => apiCall('/api/v1/vulnerabilities/sla-policy'),
+    getSummary: () => apiCall('/api/v1/vulnerabilities/summary'),
+    getEcosystems: () => apiCall('/api/v1/vulnerabilities/ecosystems'),
+  };
+}
+
 export default BackendProvider;

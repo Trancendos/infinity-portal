@@ -210,6 +210,7 @@ from routers import (
     integrations, appstore, notifications,
     itsm, gates, documents, assets, kb, deps,
     billing, workflows, artifacts, errors, security,
+    observability, compliance_frameworks, vulnerability,
 )
 
 app.include_router(auth.router)
@@ -241,6 +242,10 @@ app.include_router(workflows.router)
 app.include_router(artifacts.router)
 app.include_router(errors.router)
 app.include_router(security.router)
+# Ecosystem expansion — Sprint 1
+app.include_router(observability.router)
+app.include_router(compliance_frameworks.router)
+app.include_router(vulnerability.router)
 
 
 # ============================================================

@@ -29,6 +29,8 @@ const DependencyMap = lazy(() => import('../modules/DependencyMap'));
 
 // Production hardening modules
 const WorkflowBuilder = lazy(() => import('../modules/WorkflowBuilder'));
+const SecretsVault = lazy(() => import('../modules/SecretsVault'));
+const ObservabilityDashboard = lazy(() => import('../modules/ObservabilityDashboard'));
 
 interface WindowProps {
   id: string;
@@ -102,6 +104,8 @@ function ModuleRenderer({ moduleId }: { moduleId: string }) {
     'com.infinity-os.knowledge': <KnowledgeHub />,
     'com.infinity-os.dependencies': <DependencyMap />,
     'com.infinity-os.workflows': <WorkflowBuilder />,
+    'com.infinity-os.secrets': <SecretsVault />,
+    'com.infinity-os.observability': <ObservabilityDashboard />,
 
     // Placeholder modules (to be implemented)
     'com.infinity-os.text-editor': <PlaceholderModule name="Text Editor" icon="📝" />,
@@ -225,4 +229,8 @@ export const MODULE_REGISTRY = [
 
   // Production hardening
   { id: 'com.infinity-os.workflows', name: 'Workflow Builder', icon: '⚡', category: 'automation' },
+
+  // Ecosystem expansion
+  { id: 'com.infinity-os.secrets', name: 'Secrets Vault', icon: '🔑', category: 'security' },
+  { id: 'com.infinity-os.observability', name: 'Observability', icon: '📊', category: 'operations' },
 ];
