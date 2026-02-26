@@ -775,4 +775,51 @@ export function useVulnerabilities() {
   };
 }
 
+// ============================================================
+// CODE GENERATION HOOKS
+// ============================================================
+
+export function useCodeGen() {
+  const { apiCall } = useBackend();
+  return {
+    listLanguages: () => apiCall('/api/v1/codegen/languages'),
+    listProjectTypes: () => apiCall('/api/v1/codegen/project-types'),
+    listTemplates: () => apiCall('/api/v1/codegen/templates'),
+    generateProject: (data: Record<string, unknown>) =>
+      apiCall('/api/v1/codegen/generate', { method: 'POST', body: JSON.stringify(data) }),
+    getProject: (id: string) => apiCall(`/api/v1/codegen/projects/${id}`),
+    getProjectFile: (id: string, filePath: string) =>
+      apiCall(`/api/v1/codegen/projects/${id}/files/${filePath}`),
+    listProjects: () => apiCall('/api/v1/codegen/projects'),
+    getCompletion: (data: Record<string, unknown>) =>
+      apiCall('/api/v1/codegen/complete', { method: 'POST', body: JSON.stringify(data) }),
+    refactorCode: (data: Record<string, unknown>) =>
+      apiCall('/api/v1/codegen/refactor', { method: 'POST', body: JSON.stringify(data) }),
+  };
+}
+
+// ============================================================
+// VERSION HISTORY HOOKS
+// ============================================================
+
+export function useVersionHistory() {
+  const { apiCall } = useBackend();
+  return {
+    listEntityTypes: () => apiCall('/api/v1/versions/entity-types'),
+    listChangeTypes: () => apiCall('/api/v1/versions/change-types'),
+    saveVersion: (data: Record<string, unknown>) =>
+      apiCall('/api/v1/versions/save', { method: 'POST', body: JSON.stringify(data) }),
+    listVersions: (entityType: string, entityId: string, limit = 20) =>
+      apiCall(`/api/v1/versions/${entityType}/${entityId}?limit=${limit}`),
+    getLatestVersion: (entityType: string, entityId: string) =>
+      apiCall(`/api/v1/versions/${entityType}/${entityId}/latest`),
+    getVersion: (entityType: string, entityId: string, versionNumber: number) =>
+      apiCall(`/api/v1/versions/${entityType}/${entityId}/${versionNumber}`),
+    rollback: (data: Record<string, unknown>) =>
+      apiCall('/api/v1/versions/rollback', { method: 'POST', body: JSON.stringify(data) }),
+    getSummary: (entityType: string, entityId: string) =>
+      apiCall(`/api/v1/versions/${entityType}/${entityId}/summary-stats`),
+  };
+}
+
 export default BackendProvider;

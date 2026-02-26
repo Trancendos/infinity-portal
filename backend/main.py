@@ -211,7 +211,9 @@ from routers import (
     itsm, gates, documents, assets, kb, deps,
     billing, workflows, artifacts, errors, security,
     observability, compliance_frameworks, vulnerability,
+    codegen,
 )
+from routers import version_history as version_history_router
 
 app.include_router(auth.router)
 app.include_router(ai.router)
@@ -246,6 +248,9 @@ app.include_router(security.router)
 app.include_router(observability.router)
 app.include_router(compliance_frameworks.router)
 app.include_router(vulnerability.router)
+# Ecosystem expansion — Sprint 2
+app.include_router(codegen.router)
+app.include_router(version_history_router.router)
 
 
 # ============================================================
