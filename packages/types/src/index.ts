@@ -8,7 +8,7 @@
 // CORE IDENTITY & AUTH TYPES
 // ============================================================
 
-export type UserRole = 'super_admin' | 'org_admin' | 'power_user' | 'user';
+export type UserRole = 'super_admin' | 'org_admin' | 'auditor' | 'power_user' | 'user';
 
 export interface User {
   id: string;

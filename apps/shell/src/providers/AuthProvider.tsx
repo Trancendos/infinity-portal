@@ -1,149 +1,250 @@
 /**
  * AuthProvider — React context for authentication state
- * Integrates with the Identity Service (Cloudflare Worker)
- * Zero Trust: tokens are short-lived, continuously validated
+ * Unified: talks directly to FastAPI backend (/api/v1/auth/*)
+ * Eliminates dependency on Cloudflare Identity Worker
+ * Stores tokens in localStorage with auto-refresh
  */
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import type { User, Session } from '@infinity-os/types';
+import type { User } from '@infinity-os/types';
 import { useKernel } from './KernelProvider';
+
+// ============================================================
+// TYPES
+// ============================================================
 
 interface AuthContextValue {
   user: User | null;
-  session: Session | null;
   isLoading: boolean;
-  login: (email: string, password: string, mfaCode?: string) => Promise<void>;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   register: (email: string, password: string, displayName: string) => Promise<void>;
+  refreshToken: () => Promise<boolean>;
+  getAccessToken: () => string | null;
+}
+
+interface BackendUser {
+  id: string;
+  email: string;
+  display_name: string;
+  role: string;
+  organisation_id: string;
+  is_active: boolean;
+  permissions: string[];
+}
+
+interface TokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+  user: BackendUser;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const IDENTITY_URL = import.meta.env.VITE_IDENTITY_WORKER_URL ?? 'http://localhost:8787';
+const API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:8000';
+
+// Storage keys
+const ACCESS_TOKEN_KEY = 'infinity_access_token';
+const REFRESH_TOKEN_KEY = 'infinity_refresh_token';
+const USER_KEY = 'infinity_user';
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function backendUserToUser(bu: BackendUser): User {
+  return {
+    id: bu.id,
+    email: bu.email,
+    displayName: bu.display_name,
+    role: bu.role as User['role'],
+    organisationId: bu.organisation_id,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    mfaEnabled: false,
+    preferences: {
+      theme: 'dark',
+      language: 'en',
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      aiEnabled: true,
+      analyticsEnabled: true,
+    },
+  };
+}
+
+async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Request failed' }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
+// ============================================================
+// PROVIDER
+// ============================================================
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { kernel } = useKernel();
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    const stored = localStorage.getItem(USER_KEY);
+    return stored ? JSON.parse(stored) : null;
+  });
   const [isLoading, setIsLoading] = useState(true);
 
-  // Restore session on mount
+  // ---- Token helpers ----
+
+  const getAccessToken = useCallback((): string | null => {
+    return localStorage.getItem(ACCESS_TOKEN_KEY);
+  }, []);
+
+  const storeTokens = useCallback((tokens: TokenResponse) => {
+    localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access_token);
+    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token);
+    const mappedUser = backendUserToUser(tokens.user);
+    localStorage.setItem(USER_KEY, JSON.stringify(mappedUser));
+    setUser(mappedUser);
+    kernel.setUser(mappedUser);
+  }, [kernel]);
+
+  const clearTokens = useCallback(() => {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    setUser(null);
+    kernel.setUser(null);
+  }, [kernel]);
+
+  // ---- Auto-refresh ----
+
+  const refreshToken = useCallback(async (): Promise<boolean> => {
+    const rt = localStorage.getItem(REFRESH_TOKEN_KEY);
+    if (!rt) return false;
+
+    try {
+      const data = await apiFetch<TokenResponse>('/api/v1/auth/refresh', {
+        method: 'POST',
+        body: JSON.stringify({ refresh_token: rt }),
+      });
+      storeTokens(data);
+      return true;
+    } catch {
+      clearTokens();
+      return false;
+    }
+  }, [storeTokens, clearTokens]);
+
+  // ---- Session restore on mount ----
+
   useEffect(() => {
     const restoreSession = async () => {
+      const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        const savedSession = await kernel.storage.get<Session>('auth:session');
-        if (savedSession && savedSession.expiresAt > Date.now()) {
-          setSession(savedSession);
-          setUser(savedSession.user);
-          kernel.setUser(savedSession.user);
-        } else if (savedSession?.refreshToken) {
-          // Try to refresh
-          await refreshSession(savedSession.refreshToken);
+        // Verify token is still valid by calling /me
+        const backendUser = await apiFetch<BackendUser>('/api/v1/auth/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const mappedUser = backendUserToUser(backendUser);
+        setUser(mappedUser);
+        kernel.setUser(mappedUser);
+        localStorage.setItem(USER_KEY, JSON.stringify(mappedUser));
+      } catch {
+        // Token invalid — try refresh
+        const refreshed = await refreshToken();
+        if (!refreshed) {
+          clearTokens();
         }
-      } catch (error) {
-        console.error('[Auth] Failed to restore session:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
     restoreSession();
-  }, [kernel]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-refresh token before expiry
+  // ---- Auto-refresh timer (every 25 minutes) ----
+
   useEffect(() => {
-    if (!session) return;
-    const timeUntilExpiry = session.expiresAt - Date.now() - 60_000; // 1 min before expiry
-    if (timeUntilExpiry <= 0) return;
+    if (!user) return;
+    const interval = setInterval(() => {
+      refreshToken();
+    }, 25 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user, refreshToken]);
 
-    const timer = setTimeout(() => {
-      refreshSession(session.refreshToken);
-    }, timeUntilExpiry);
+  // ---- Auth actions ----
 
-    return () => clearTimeout(timer);
-  }, [session]);
-
-  const refreshSession = async (refreshToken: string) => {
-    try {
-      const response = await fetch(`${IDENTITY_URL}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
-      });
-
-      if (!response.ok) {
-        await logout();
-        return;
-      }
-
-      const { data } = await response.json() as { data: Session };
-      setSession(data);
-      setUser(data.user);
-      kernel.setUser(data.user);
-      await kernel.storage.set('auth:session', data);
-    } catch (error) {
-      console.error('[Auth] Token refresh failed:', error);
-      await logout();
-    }
-  };
-
-  const login = useCallback(async (email: string, password: string, mfaCode?: string) => {
-    const response = await fetch(`${IDENTITY_URL}/auth/login`, {
+  const login = useCallback(async (email: string, password: string): Promise<void> => {
+    const data = await apiFetch<TokenResponse>('/api/v1/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, mfaCode }),
+      body: JSON.stringify({ email, password }),
     });
+    storeTokens(data);
+  }, [storeTokens]);
 
-    const result = await response.json() as { success: boolean; data?: Session; error?: { message: string } };
-
-    if (!result.success || !result.data) {
-      throw new Error(result.error?.message ?? 'Login failed');
-    }
-
-    setSession(result.data);
-    setUser(result.data.user);
-    kernel.setUser(result.data.user);
-    await kernel.storage.set('auth:session', result.data);
-  }, [kernel]);
-
-  const logout = useCallback(async () => {
-    try {
-      if (session?.accessToken) {
-        await fetch(`${IDENTITY_URL}/auth/logout`, {
+  const logout = useCallback(async (): Promise<void> => {
+    const token = getAccessToken();
+    if (token) {
+      try {
+        await apiFetch('/api/v1/auth/logout', {
           method: 'POST',
-          headers: { Authorization: `Bearer ${session.accessToken}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
+      } catch {
+        // Ignore logout errors — clear locally regardless
       }
-    } catch (error) {
-      console.error('[Auth] Logout request failed:', error);
-    } finally {
-      setSession(null);
-      setUser(null);
-      kernel.setUser(null);
-      await kernel.storage.delete('auth:session');
     }
-  }, [session, kernel]);
+    clearTokens();
+  }, [getAccessToken, clearTokens]);
 
-  const register = useCallback(async (email: string, password: string, displayName: string) => {
-    const response = await fetch(`${IDENTITY_URL}/auth/register`, {
+  const register = useCallback(async (
+    email: string,
+    password: string,
+    displayName: string,
+  ): Promise<void> => {
+    const data = await apiFetch<TokenResponse>('/api/v1/auth/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, displayName }),
+      body: JSON.stringify({ email, password, display_name: displayName }),
     });
-
-    const result = await response.json() as { success: boolean; error?: { message: string } };
-
-    if (!result.success) {
-      throw new Error(result.error?.message ?? 'Registration failed');
-    }
-  }, []);
+    storeTokens(data);
+  }, [storeTokens]);
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, login, logout, register }}>
+    <AuthContext.Provider value={{
+      user,
+      isLoading,
+      isAuthenticated: !!user,
+      login,
+      logout,
+      register,
+      refreshToken,
+      getAccessToken,
+    }}>
       {children}
     </AuthContext.Provider>
   );
 }
+
+// ============================================================
+// HOOK
+// ============================================================
 
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);

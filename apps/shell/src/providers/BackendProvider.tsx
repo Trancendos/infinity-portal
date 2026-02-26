@@ -616,4 +616,88 @@ export function useWebSocket() {
   return { connect, disconnect, send, subscribe, on, connected };
 }
 
+// ============================================================
+// BILLING & USAGE HOOKS
+// ============================================================
+
+export function useBilling() {
+  const { apiCall } = useBackend();
+  return {
+    getUsage: (period = 'current_month') => apiCall(`/api/v1/billing/usage?period=${period}`),
+    recordUsage: (data: Record<string, unknown>) => apiCall('/api/v1/billing/usage/record', { method: 'POST', body: JSON.stringify(data) }),
+    getBillingAccount: () => apiCall('/api/v1/billing/account'),
+    getInvoices: () => apiCall('/api/v1/billing/invoices'),
+    getFeatureFlags: () => apiCall('/api/v1/billing/features'),
+  };
+}
+
+// ============================================================
+// WORKFLOW HOOKS
+// ============================================================
+
+export function useWorkflows() {
+  const { apiCall } = useBackend();
+  return {
+    listWorkflows: (status?: string) => apiCall(`/api/v1/workflows${status ? `?status=${status}` : ''}`),
+    getWorkflow: (id: string) => apiCall(`/api/v1/workflows/${id}`),
+    createWorkflow: (data: Record<string, unknown>) => apiCall('/api/v1/workflows', { method: 'POST', body: JSON.stringify(data) }),
+    updateWorkflow: (id: string, data: Record<string, unknown>) => apiCall(`/api/v1/workflows/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    deleteWorkflow: (id: string) => apiCall(`/api/v1/workflows/${id}`, { method: 'DELETE' }),
+    triggerWorkflow: (id: string, inputData: Record<string, unknown>) => apiCall(`/api/v1/workflows/${id}/trigger`, { method: 'POST', body: JSON.stringify({ input_data: inputData }) }),
+    listExecutions: (workflowId: string) => apiCall(`/api/v1/workflows/${workflowId}/executions`),
+    getExecution: (workflowId: string, execId: string) => apiCall(`/api/v1/workflows/${workflowId}/executions/${execId}`),
+  };
+}
+
+// ============================================================
+// ARTIFACT REPOSITORY HOOKS
+// ============================================================
+
+export function useArtifacts() {
+  const { apiCall } = useBackend();
+  return {
+    listRepos: (type?: string) => apiCall(`/api/v1/artifacts/repos${type ? `?artifact_type=${type}` : ''}`),
+    createRepo: (data: Record<string, unknown>) => apiCall('/api/v1/artifacts/repos', { method: 'POST', body: JSON.stringify(data) }),
+    getRepo: (id: string) => apiCall(`/api/v1/artifacts/repos/${id}`),
+    listArtifacts: (repoId: string, search?: string) => apiCall(`/api/v1/artifacts/repos/${repoId}/artifacts${search ? `?search=${search}` : ''}`),
+    uploadArtifact: (repoId: string, data: Record<string, unknown>) => apiCall(`/api/v1/artifacts/repos/${repoId}/artifacts`, { method: 'POST', body: JSON.stringify(data) }),
+    downloadArtifact: (repoId: string, artifactId: string) => apiCall(`/api/v1/artifacts/repos/${repoId}/artifacts/${artifactId}/download`, { method: 'POST' }),
+    searchArtifacts: (q: string, type?: string) => apiCall(`/api/v1/artifacts/search?q=${encodeURIComponent(q)}${type ? `&artifact_type=${type}` : ''}`),
+    getStats: () => apiCall('/api/v1/artifacts/stats'),
+  };
+}
+
+// ============================================================
+// ERROR REGISTRY HOOKS
+// ============================================================
+
+export function useErrors() {
+  const { apiCall } = useBackend();
+  return {
+    getCatalogue: () => apiCall('/api/v1/errors/catalogue'),
+    listErrors: (params?: Record<string, string>) => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return apiCall(`/api/v1/errors${qs}`);
+    },
+    reportError: (data: Record<string, unknown>) => apiCall('/api/v1/errors', { method: 'POST', body: JSON.stringify(data) }),
+    resolveError: (id: string, notes: string) => apiCall(`/api/v1/errors/${id}/resolve`, { method: 'PATCH', body: JSON.stringify({ resolution_notes: notes }) }),
+    getStats: () => apiCall('/api/v1/errors/stats'),
+  };
+}
+
+// ============================================================
+// SECURITY HOOKS (Crypto-shredding, Merkle audit)
+// ============================================================
+
+export function useSecurity() {
+  const { apiCall } = useBackend();
+  return {
+    cryptoShred: (data: Record<string, unknown>) => apiCall('/api/v1/security/crypto-shred', { method: 'POST', body: JSON.stringify(data) }),
+    listCryptoShredEvents: () => apiCall('/api/v1/security/crypto-shred'),
+    createMerkleBatch: () => apiCall('/api/v1/security/audit/merkle-batch', { method: 'POST' }),
+    listMerkleBatches: () => apiCall('/api/v1/security/audit/merkle-batches'),
+    verifyAuditEvent: (eventId: string) => apiCall(`/api/v1/security/audit/verify/${eventId}`),
+  };
+}
+
 export default BackendProvider;

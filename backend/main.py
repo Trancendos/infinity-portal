@@ -209,6 +209,7 @@ from routers import (
     repositories, build, federation, websocket_router, kanban,
     integrations, appstore, notifications,
     itsm, gates, documents, assets, kb, deps,
+    billing, workflows, artifacts, errors, security,
 )
 
 app.include_router(auth.router)
@@ -233,6 +234,13 @@ app.include_router(documents.router)
 app.include_router(assets.router)
 app.include_router(kb.router)
 app.include_router(deps.router)
+
+# Production hardening routers (Zero-Net-Cost, Workflows, Artifacts, Errors, Security)
+app.include_router(billing.router)
+app.include_router(workflows.router)
+app.include_router(artifacts.router)
+app.include_router(errors.router)
+app.include_router(security.router)
 
 
 # ============================================================

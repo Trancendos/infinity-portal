@@ -1960,3 +1960,614 @@ class DTwinMetric(Base):
     __table_args__ = (
         Index("idx_metric_name_time", "metric_name", "timestamp"),
     )
+
+
+# ============================================================
+# MONETISATION & BILLING (Zero-Net-Cost Architecture)
+# ============================================================
+
+class DataClassification(str, PyEnum):
+    PUBLIC = "public"
+    INTERNAL = "internal"
+    CONFIDENTIAL = "confidential"
+    RESTRICTED = "restricted"
+    PII = "pii"
+    FINANCIAL = "financial"
+    HEALTH = "health"
+
+
+class BillingPlan(str, PyEnum):
+    FREE = "free"
+    PRO = "pro"
+    ENTERPRISE = "enterprise"
+
+
+class InvoiceStatus(str, PyEnum):
+    DRAFT = "draft"
+    OPEN = "open"
+    PAID = "paid"
+    VOID = "void"
+    UNCOLLECTIBLE = "uncollectible"
+
+
+class UsageMetric(Base):
+    """Daily aggregated usage per user/org — foundation for billing and Zero-Net-Cost tracking"""
+    __tablename__ = "usage_metrics"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    date = Column(String, nullable=False)  # YYYY-MM-DD
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    # API usage
+    api_calls = Column(Integer, default=0)
+    api_calls_failed = Column(Integer, default=0)
+
+    # AI usage
+    ai_generations = Column(Integer, default=0)
+    ai_tokens_input = Column(BigInteger, default=0)
+    ai_tokens_output = Column(BigInteger, default=0)
+    ai_cost_usd = Column(String, default="0.000000")  # String for precision
+
+    # Storage
+    storage_bytes_used = Column(BigInteger, default=0)
+    storage_bytes_uploaded = Column(BigInteger, default=0)
+
+    # Compute
+    compute_seconds = Column(Integer, default=0)
+    build_minutes = Column(Integer, default=0)
+
+    # Collaboration
+    active_users = Column(Integer, default=0)
+    kanban_tasks_created = Column(Integer, default=0)
+    documents_created = Column(Integer, default=0)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("date", "organisation_id", "user_id", name="uq_usage_date_org_user"),
+        Index("idx_usage_date_org", "date", "organisation_id"),
+    )
+
+
+class BillingAccount(Base):
+    """Billing account linked to an organisation — Stripe integration"""
+    __tablename__ = "billing_accounts"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, unique=True)
+
+    # Stripe
+    stripe_customer_id = Column(String, nullable=True, unique=True)
+    stripe_subscription_id = Column(String, nullable=True)
+    stripe_payment_method_id = Column(String, nullable=True)
+
+    # Plan
+    plan = Column(SQLEnum(BillingPlan), default=BillingPlan.FREE, nullable=False)
+    plan_started_at = Column(DateTime(timezone=True), nullable=True)
+    plan_expires_at = Column(DateTime(timezone=True), nullable=True)
+    trial_ends_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Billing details
+    billing_email = Column(String, nullable=True)
+    billing_name = Column(String, nullable=True)
+    billing_address = Column(JSON, default=dict)
+    currency = Column(String, default="GBP")
+    tax_id = Column(String, nullable=True)
+
+    # Limits (overrides plan defaults)
+    custom_ai_generations_limit = Column(Integer, nullable=True)
+    custom_storage_gb_limit = Column(Integer, nullable=True)
+    custom_users_limit = Column(Integer, nullable=True)
+    custom_api_calls_limit = Column(Integer, nullable=True)
+
+    # Balance (for prepaid credits)
+    balance_credits = Column(Integer, default=0)
+
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class Invoice(Base):
+    """Invoice records for billing"""
+    __tablename__ = "invoices"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    billing_account_id = Column(String, ForeignKey("billing_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Stripe
+    stripe_invoice_id = Column(String, nullable=True, unique=True)
+
+    # Amounts (in pence/cents)
+    subtotal_pence = Column(Integer, default=0)
+    tax_pence = Column(Integer, default=0)
+    total_pence = Column(Integer, default=0)
+    amount_paid_pence = Column(Integer, default=0)
+    currency = Column(String, default="GBP")
+
+    status = Column(SQLEnum(InvoiceStatus), default=InvoiceStatus.DRAFT, nullable=False)
+    period_start = Column(DateTime(timezone=True), nullable=True)
+    period_end = Column(DateTime(timezone=True), nullable=True)
+    due_date = Column(DateTime(timezone=True), nullable=True)
+    paid_at = Column(DateTime(timezone=True), nullable=True)
+
+    line_items = Column(JSON, default=list)  # [{description, quantity, unit_price, total}]
+    notes = Column(Text, nullable=True)
+    pdf_url = Column(String, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+# ============================================================
+# FEATURE FLAGS
+# ============================================================
+
+class FeatureFlag(Base):
+    """Runtime feature toggles — enable/disable features per org or globally"""
+    __tablename__ = "feature_flags"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    key = Column(String, nullable=False)  # e.g. "ai_builder", "on_chain_audit"
+    description = Column(Text, nullable=True)
+    enabled = Column(Boolean, default=False)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=True, index=True)  # null = global
+    rollout_percentage = Column(Integer, default=100)  # 0-100
+    conditions = Column(JSON, default=dict)  # e.g. {"min_plan": "pro"}
+    created_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("key", "organisation_id", name="uq_feature_flag_key_org"),
+        Index("idx_feature_flag_key", "key"),
+    )
+
+
+# ============================================================
+# STRUCTURED ERROR REGISTRY (IOS-DOMAIN-NUMBER)
+# ============================================================
+
+class ErrorSeverity(str, PyEnum):
+    DEBUG = "debug"
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+    CRITICAL = "critical"
+
+
+class ErrorEvent(Base):
+    """Structured error tracking with error codes"""
+    __tablename__ = "error_events"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    error_code = Column(String, nullable=False, index=True)  # e.g. IOS-AUTH-001
+    severity = Column(SQLEnum(ErrorSeverity), default=ErrorSeverity.ERROR, nullable=False)
+    message = Column(Text, nullable=False)
+    stack_trace = Column(Text, nullable=True)
+    context = Column(JSON, default=dict)  # Additional context data
+
+    # Request context
+    request_id = Column(String, nullable=True, index=True)
+    user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=True, index=True)
+    ip_address = Column(String, nullable=True)
+    endpoint = Column(String, nullable=True)
+    http_method = Column(String, nullable=True)
+
+    # Resolution
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    resolved_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    resolution_notes = Column(Text, nullable=True)
+    is_resolved = Column(Boolean, default=False, index=True)
+
+    # Occurrence tracking
+    occurrence_count = Column(Integer, default=1)
+    first_seen_at = Column(DateTime(timezone=True), default=utcnow)
+    last_seen_at = Column(DateTime(timezone=True), default=utcnow)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        Index("idx_error_code_severity", "error_code", "severity"),
+        Index("idx_error_unresolved", "is_resolved", "severity"),
+    )
+
+
+# ============================================================
+# WORKFLOW ENGINE (Make/Zapier/n8n equivalent)
+# ============================================================
+
+class WorkflowTriggerType(str, PyEnum):
+    MANUAL = "manual"
+    WEBHOOK = "webhook"
+    SCHEDULE = "schedule"
+    EVENT = "event"
+    API_CALL = "api_call"
+
+
+class WorkflowStatus(str, PyEnum):
+    DRAFT = "draft"
+    ACTIVE = "active"
+    PAUSED = "paused"
+    ARCHIVED = "archived"
+
+
+class WorkflowExecutionStatus(str, PyEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    TIMED_OUT = "timed_out"
+
+
+class WorkflowDefinition(Base):
+    """Automation workflow definitions — trigger + steps"""
+    __tablename__ = "workflow_definitions"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    # Trigger
+    trigger_type = Column(SQLEnum(WorkflowTriggerType), default=WorkflowTriggerType.MANUAL, nullable=False)
+    trigger_config = Column(JSON, default=dict)  # cron expression, webhook URL, event type, etc.
+
+    # Steps: [{id, type, name, config, on_success, on_failure}]
+    # Step types: http_request, ai_generate, send_notification, create_task, condition, transform, delay
+    steps = Column(JSON, default=list)
+
+    # Settings
+    status = Column(SQLEnum(WorkflowStatus), default=WorkflowStatus.DRAFT, nullable=False)
+    timeout_seconds = Column(Integer, default=300)
+    max_retries = Column(Integer, default=3)
+    tags = Column(JSON, default=list)
+
+    # Stats
+    run_count = Column(Integer, default=0)
+    success_count = Column(Integer, default=0)
+    failure_count = Column(Integer, default=0)
+    last_run_at = Column(DateTime(timezone=True), nullable=True)
+    last_run_status = Column(String, nullable=True)
+
+    # Versioning
+    version = Column(Integer, default=1)
+    previous_version_id = Column(String, nullable=True)
+
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("idx_workflow_org_status", "organisation_id", "status"),
+    )
+
+
+class WorkflowExecution(Base):
+    """Individual workflow run history"""
+    __tablename__ = "workflow_executions"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    workflow_id = Column(String, ForeignKey("workflow_definitions.id", ondelete="CASCADE"), nullable=False, index=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    triggered_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    status = Column(SQLEnum(WorkflowExecutionStatus), default=WorkflowExecutionStatus.PENDING, nullable=False, index=True)
+    trigger_type = Column(String, nullable=True)
+    trigger_data = Column(JSON, default=dict)  # Input data that triggered the run
+
+    # Execution details
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    duration_ms = Column(Integer, nullable=True)
+
+    # Step results: [{step_id, status, output, error, started_at, completed_at, duration_ms}]
+    step_results = Column(JSON, default=list)
+    current_step_id = Column(String, nullable=True)
+
+    # Output
+    final_output = Column(JSON, nullable=True)
+    error_message = Column(Text, nullable=True)
+    error_step_id = Column(String, nullable=True)
+
+    # Cost tracking
+    tokens_consumed = Column(Integer, default=0)
+    cost_usd = Column(String, default="0.000000")
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        Index("idx_execution_workflow_status", "workflow_id", "status"),
+        Index("idx_execution_org_created", "organisation_id", "created_at"),
+    )
+
+
+# ============================================================
+# ARTIFACT REPOSITORY
+# ============================================================
+
+class ArtifactType(str, PyEnum):
+    CODE_SAMPLE = "code_sample"
+    TEMPLATE = "template"
+    SCHEMA = "schema"
+    DATASET = "dataset"
+    DESIGN_ASSET = "design_asset"
+    DOCUMENTATION = "documentation"
+    BUILD_OUTPUT = "build_output"
+    MODEL_WEIGHTS = "model_weights"
+    CONFIG = "config"
+    OTHER = "other"
+
+
+class ArtifactVisibility(str, PyEnum):
+    PRIVATE = "private"
+    ORG = "org"
+    PUBLIC = "public"
+
+
+class ArtifactRepository(Base):
+    """Centralised artifact repository — code samples, templates, schemas, design assets"""
+    __tablename__ = "artifact_repositories"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    artifact_type = Column(SQLEnum(ArtifactType), nullable=False)
+    visibility = Column(SQLEnum(ArtifactVisibility), default=ArtifactVisibility.ORG, nullable=False)
+    tags = Column(JSON, default=list)
+    extra_metadata = Column(JSON, default=dict)
+
+    # Stats
+    artifact_count = Column(Integer, default=0)
+    total_downloads = Column(Integer, default=0)
+    total_size_bytes = Column(BigInteger, default=0)
+
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("idx_artifact_repo_org_type", "organisation_id", "artifact_type"),
+    )
+
+
+class Artifact(Base):
+    """Individual artifact stored in a repository"""
+    __tablename__ = "artifacts"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    repository_id = Column(String, ForeignKey("artifact_repositories.id", ondelete="CASCADE"), nullable=False, index=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    uploaded_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    version = Column(String, default="1.0.0")
+    artifact_type = Column(SQLEnum(ArtifactType), nullable=False)
+
+    # Storage
+    storage_url = Column(String, nullable=True)  # R2/S3 URL
+    storage_key = Column(String, nullable=True)  # Object storage key
+    checksum_sha256 = Column(String, nullable=True)
+    size_bytes = Column(BigInteger, default=0)
+    mime_type = Column(String, nullable=True)
+
+    # Data classification (from Finalia Encrypted Data Lifecycle doc)
+    data_classification = Column(SQLEnum(DataClassification), default=DataClassification.INTERNAL, nullable=False)
+
+    # Metadata
+    tags = Column(JSON, default=list)
+    extra_metadata = Column(JSON, default=dict)  # language, framework, dimensions, etc.
+    preview_url = Column(String, nullable=True)  # Thumbnail for design assets
+
+    # Stats
+    download_count = Column(Integer, default=0)
+    last_downloaded_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Versioning
+    is_latest = Column(Boolean, default=True)
+    previous_version_id = Column(String, nullable=True)
+
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("idx_artifact_repo_name", "repository_id", "name"),
+        Index("idx_artifact_classification", "data_classification"),
+    )
+
+
+class ArtifactDownload(Base):
+    """Track artifact download history"""
+    __tablename__ = "artifact_downloads"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    artifact_id = Column(String, ForeignKey("artifacts.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=True)
+    ip_address = Column(String, nullable=True)
+    downloaded_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+# ============================================================
+# AI TRAINING & FEEDBACK (for AI Builder)
+# ============================================================
+
+class AITrainingDataset(Base):
+    """Curated training datasets from platform interactions"""
+    __tablename__ = "ai_training_datasets"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    approved_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    source_type = Column(String, nullable=False)  # hitl_decisions, user_feedback, kb_articles, etc.
+    data_points_count = Column(Integer, default=0)
+    quality_score = Column(String, nullable=True)  # 0.0-1.0
+    status = Column(String, default="draft")  # draft, review, approved, archived
+    storage_url = Column(String, nullable=True)
+    data_classification = Column(SQLEnum(DataClassification), default=DataClassification.CONFIDENTIAL)
+    tags = Column(JSON, default=list)
+
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class AIModelEvaluation(Base):
+    """Benchmark results for AI models over time"""
+    __tablename__ = "ai_model_evaluations"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    evaluated_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    model_provider = Column(String, nullable=False)  # groq, openai, anthropic, etc.
+    model_name = Column(String, nullable=False)
+    benchmark_name = Column(String, nullable=False)  # e.g. "code_quality", "factual_accuracy"
+    benchmark_version = Column(String, default="1.0")
+
+    # Scores
+    overall_score = Column(String, nullable=True)  # 0.0-1.0
+    accuracy_score = Column(String, nullable=True)
+    latency_p50_ms = Column(Integer, nullable=True)
+    latency_p95_ms = Column(Integer, nullable=True)
+    latency_p99_ms = Column(Integer, nullable=True)
+    cost_per_1k_tokens_usd = Column(String, nullable=True)
+    tokens_per_second = Column(String, nullable=True)
+
+    # Test details
+    test_prompts_count = Column(Integer, default=0)
+    passed_count = Column(Integer, default=0)
+    failed_count = Column(Integer, default=0)
+    results_detail = Column(JSON, default=list)
+
+    evaluated_at = Column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        Index("idx_eval_model_benchmark", "model_name", "benchmark_name"),
+        Index("idx_eval_org_date", "organisation_id", "evaluated_at"),
+    )
+
+
+class UserFeedback(Base):
+    """Explicit user feedback on AI outputs — feeds into training pipeline"""
+    __tablename__ = "user_feedback"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # What was rated
+    generation_request_id = Column(String, nullable=True, index=True)  # Links to provenance manifest
+    content_type = Column(String, nullable=True)  # ai_generation, kb_article, workflow_output
+
+    # Rating
+    rating = Column(Integer, nullable=False)  # 1-5
+    feedback_category = Column(String, nullable=True)  # accuracy, helpfulness, safety, relevance
+    feedback_text = Column(Text, nullable=True)
+    is_helpful = Column(Boolean, nullable=True)
+
+    # For training pipeline
+    included_in_dataset_id = Column(String, nullable=True)
+    anonymised_at = Column(DateTime(timezone=True), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        Index("idx_feedback_rating", "rating"),
+        Index("idx_feedback_org_date", "organisation_id", "created_at"),
+    )
+
+
+# ============================================================
+# CRYPTO-SHREDDING (GDPR Art. 17 — Right to be Forgotten)
+# ============================================================
+
+class CryptoShredEvent(Base):
+    """Records of crypto-shredding events for GDPR compliance audit trail"""
+    __tablename__ = "crypto_shred_events"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
+    initiated_by = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    # What was shredded
+    target_user_id = Column(String, nullable=True, index=True)
+    target_entity_type = Column(String, nullable=False)  # user, file, document, etc.
+    target_entity_id = Column(String, nullable=False)
+
+    # Crypto details
+    dek_destroyed = Column(Boolean, default=False)  # Data Encryption Key destroyed
+    tables_affected = Column(JSON, default=list)  # List of tables where data was nullified
+    records_affected = Column(Integer, default=0)
+
+    # Legal basis
+    legal_basis = Column(String, nullable=True)  # gdpr_art17, user_request, court_order
+    request_reference = Column(String, nullable=True)
+
+    # Verification
+    merkle_hash = Column(String, nullable=True)  # Hash anchored to audit log
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+    verified_by = Column(String, nullable=True)
+
+    status = Column(String, default="pending")  # pending, completed, verified, failed
+    notes = Column(Text, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        Index("idx_shred_target_user", "target_user_id"),
+        Index("idx_shred_org_status", "organisation_id", "status"),
+    )
+
+
+# ============================================================
+# MERKLE AUDIT LOG (On-Chain Audit Blueprint)
+# ============================================================
+
+class MerkleAuditBatch(Base):
+    """Merkle tree batches of audit events for tamper-evident proof"""
+    __tablename__ = "merkle_audit_batches"
+
+    id = Column(String, primary_key=True, default=new_uuid)
+    organisation_id = Column(String, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=True, index=True)
+
+    # Batch details
+    batch_number = Column(Integer, nullable=False)
+    event_count = Column(Integer, nullable=False)
+    first_event_id = Column(String, nullable=True)
+    last_event_id = Column(String, nullable=True)
+    period_start = Column(DateTime(timezone=True), nullable=False)
+    period_end = Column(DateTime(timezone=True), nullable=False)
+
+    # Merkle tree
+    merkle_root = Column(String, nullable=False)  # SHA-256 Merkle root
+    leaf_hashes = Column(JSON, default=list)  # Individual event hashes
+
+    # On-chain anchoring (optional)
+    chain_network = Column(String, nullable=True)  # arbitrum, optimism, polygon
+    chain_tx_hash = Column(String, nullable=True)  # L2 transaction hash
+    chain_block_number = Column(Integer, nullable=True)
+    anchored_at = Column(DateTime(timezone=True), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("batch_number", "organisation_id", name="uq_merkle_batch_org"),
+        Index("idx_merkle_root", "merkle_root"),
+    )
