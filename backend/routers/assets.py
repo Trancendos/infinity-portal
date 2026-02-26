@@ -305,7 +305,7 @@ async def update_asset(
         raise HTTPException(404, "Asset not found")
 
     changes = {}
-    for field, value in body.dict(exclude_unset=True).items():
+    for field, value in body.model_dump(exclude_unset=True).items():
         if value is not None:
             old_val = getattr(asset, field)
             setattr(asset, field, value)

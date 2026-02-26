@@ -700,4 +700,126 @@ export function useSecurity() {
   };
 }
 
+// ============================================================
+// OBSERVABILITY HOOKS
+// ============================================================
+
+export function useObservability() {
+  const { apiCall } = useBackend();
+  return {
+    getLogs: (params?: Record<string, string>) => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      return apiCall(`/api/v1/observability/logs${qs}`);
+    },
+    getLogStats: () => apiCall('/api/v1/observability/logs/stats'),
+    getDashboard: () => apiCall('/api/v1/observability/metrics/dashboard'),
+    getAllMetrics: () => apiCall('/api/v1/observability/metrics'),
+    getAnomalies: (resolved = false) => apiCall(`/api/v1/observability/anomalies?resolved=${resolved}`),
+    detectAnomalies: () => apiCall('/api/v1/observability/anomalies/detect', { method: 'POST' }),
+    resolveAnomaly: (id: string) => apiCall(`/api/v1/observability/anomalies/${id}/resolve`, { method: 'PATCH' }),
+    getUsagePatterns: () => apiCall('/api/v1/observability/metrics/usage-patterns'),
+    recordMetric: (name: string, value: number, labels?: Record<string, string>) =>
+      apiCall('/api/v1/observability/metrics/record', { method: 'POST', body: JSON.stringify({ metric_name: name, value, labels }) }),
+  };
+}
+
+// ============================================================
+// COMPLIANCE FRAMEWORKS HOOKS
+// ============================================================
+
+export function useComplianceFrameworks() {
+  const { apiCall } = useBackend();
+  return {
+    listFrameworks: () => apiCall('/api/v1/compliance-frameworks/frameworks'),
+    listControls: (framework?: string, category?: string) => {
+      const params = new URLSearchParams();
+      if (framework) params.set('framework', framework);
+      if (category) params.set('category', category);
+      return apiCall(`/api/v1/compliance-frameworks/controls?${params}`);
+    },
+    runTests: (state: Record<string, unknown>) =>
+      apiCall('/api/v1/compliance-frameworks/test', { method: 'POST', body: JSON.stringify(state) }),
+    getReport: (framework: string) => apiCall(`/api/v1/compliance-frameworks/report/${framework}`),
+    generateReport: (framework: string, state: Record<string, unknown>) =>
+      apiCall(`/api/v1/compliance-frameworks/report/${framework}`, { method: 'POST', body: JSON.stringify(state) }),
+    getSummary: () => apiCall('/api/v1/compliance-frameworks/summary'),
+    check2060: (data: Record<string, unknown>) =>
+      apiCall('/api/v1/compliance-frameworks/2060/check', { method: 'POST', body: JSON.stringify(data) }),
+    grantConsent: (data: Record<string, unknown>) =>
+      apiCall('/api/v1/compliance-frameworks/2060/consent', { method: 'POST', body: JSON.stringify(data) }),
+    revokeConsent: (token: string) =>
+      apiCall(`/api/v1/compliance-frameworks/2060/consent/${token}`, { method: 'DELETE' }),
+    getResidencyZones: () => apiCall('/api/v1/compliance-frameworks/2060/residency-zones'),
+    getConsentTypes: () => apiCall('/api/v1/compliance-frameworks/2060/consent-types'),
+  };
+}
+
+// ============================================================
+// VULNERABILITY SCANNER HOOKS
+// ============================================================
+
+export function useVulnerabilities() {
+  const { apiCall } = useBackend();
+  return {
+    scan: (manifestContent: string, ecosystem: string, maxPackages = 50) =>
+      apiCall('/api/v1/vulnerabilities/scan', {
+        method: 'POST',
+        body: JSON.stringify({ manifest_content: manifestContent, ecosystem, max_packages: maxPackages }),
+      }),
+    listScans: (limit = 20) => apiCall(`/api/v1/vulnerabilities/scans?limit=${limit}`),
+    getScan: (id: string) => apiCall(`/api/v1/vulnerabilities/scans/${id}`),
+    getRemediationPlan: (scanId: string) => apiCall(`/api/v1/vulnerabilities/scans/${scanId}/remediation`),
+    getSlaPolicy: () => apiCall('/api/v1/vulnerabilities/sla-policy'),
+    getSummary: () => apiCall('/api/v1/vulnerabilities/summary'),
+    getEcosystems: () => apiCall('/api/v1/vulnerabilities/ecosystems'),
+  };
+}
+
+// ============================================================
+// CODE GENERATION HOOKS
+// ============================================================
+
+export function useCodeGen() {
+  const { apiCall } = useBackend();
+  return {
+    listLanguages: () => apiCall('/api/v1/codegen/languages'),
+    listProjectTypes: () => apiCall('/api/v1/codegen/project-types'),
+    listTemplates: () => apiCall('/api/v1/codegen/templates'),
+    generateProject: (data: Record<string, unknown>) =>
+      apiCall('/api/v1/codegen/generate', { method: 'POST', body: JSON.stringify(data) }),
+    getProject: (id: string) => apiCall(`/api/v1/codegen/projects/${id}`),
+    getProjectFile: (id: string, filePath: string) =>
+      apiCall(`/api/v1/codegen/projects/${id}/files/${filePath}`),
+    listProjects: () => apiCall('/api/v1/codegen/projects'),
+    getCompletion: (data: Record<string, unknown>) =>
+      apiCall('/api/v1/codegen/complete', { method: 'POST', body: JSON.stringify(data) }),
+    refactorCode: (data: Record<string, unknown>) =>
+      apiCall('/api/v1/codegen/refactor', { method: 'POST', body: JSON.stringify(data) }),
+  };
+}
+
+// ============================================================
+// VERSION HISTORY HOOKS
+// ============================================================
+
+export function useVersionHistory() {
+  const { apiCall } = useBackend();
+  return {
+    listEntityTypes: () => apiCall('/api/v1/versions/entity-types'),
+    listChangeTypes: () => apiCall('/api/v1/versions/change-types'),
+    saveVersion: (data: Record<string, unknown>) =>
+      apiCall('/api/v1/versions/save', { method: 'POST', body: JSON.stringify(data) }),
+    listVersions: (entityType: string, entityId: string, limit = 20) =>
+      apiCall(`/api/v1/versions/${entityType}/${entityId}?limit=${limit}`),
+    getLatestVersion: (entityType: string, entityId: string) =>
+      apiCall(`/api/v1/versions/${entityType}/${entityId}/latest`),
+    getVersion: (entityType: string, entityId: string, versionNumber: number) =>
+      apiCall(`/api/v1/versions/${entityType}/${entityId}/${versionNumber}`),
+    rollback: (data: Record<string, unknown>) =>
+      apiCall('/api/v1/versions/rollback', { method: 'POST', body: JSON.stringify(data) }),
+    getSummary: (entityType: string, entityId: string) =>
+      apiCall(`/api/v1/versions/${entityType}/${entityId}/summary-stats`),
+  };
+}
+
 export default BackendProvider;
