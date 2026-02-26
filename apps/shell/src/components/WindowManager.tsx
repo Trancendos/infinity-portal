@@ -27,6 +27,9 @@ const AssetRegistry = lazy(() => import('../modules/AssetRegistry'));
 const KnowledgeHub = lazy(() => import('../modules/KnowledgeHub'));
 const DependencyMap = lazy(() => import('../modules/DependencyMap'));
 
+// Production hardening modules
+const WorkflowBuilder = lazy(() => import('../modules/WorkflowBuilder'));
+
 interface WindowProps {
   id: string;
   moduleId: string;
@@ -98,6 +101,7 @@ function ModuleRenderer({ moduleId }: { moduleId: string }) {
     'com.infinity-os.assets': <AssetRegistry />,
     'com.infinity-os.knowledge': <KnowledgeHub />,
     'com.infinity-os.dependencies': <DependencyMap />,
+    'com.infinity-os.workflows': <WorkflowBuilder />,
 
     // Placeholder modules (to be implemented)
     'com.infinity-os.text-editor': <PlaceholderModule name="Text Editor" icon="📝" />,
@@ -218,4 +222,7 @@ export const MODULE_REGISTRY = [
   { id: 'com.infinity-os.assets', name: 'Asset Registry', icon: '🏷', category: 'management' },
   { id: 'com.infinity-os.knowledge', name: 'Knowledge Hub', icon: '🧠', category: 'management' },
   { id: 'com.infinity-os.dependencies', name: 'Dependencies', icon: '🗺', category: 'management' },
+
+  // Production hardening
+  { id: 'com.infinity-os.workflows', name: 'Workflow Builder', icon: '⚡', category: 'automation' },
 ];

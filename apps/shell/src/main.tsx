@@ -9,6 +9,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { KernelProvider } from './providers/KernelProvider';
 import { AuthProvider } from './providers/AuthProvider';
+import { BackendProvider } from './providers/BackendProvider';
 import { ThemeProvider } from './providers/ThemeProvider';
 import './styles/globals.css';
 
@@ -32,7 +33,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <KernelProvider>
           <AuthProvider>
-            <App />
+            <BackendProvider>
+              <App />
+            </BackendProvider>
           </AuthProvider>
         </KernelProvider>
       </ThemeProvider>

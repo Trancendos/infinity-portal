@@ -33,7 +33,7 @@ export default function Login() {
     setIsLoading(true);
     setError(null);
     try {
-      await login(data.email, data.password, data.mfaCode || undefined);
+      await login(data.email, data.password);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';
       if (message.toLowerCase().includes('mfa') || message.toLowerCase().includes('2fa')) {
