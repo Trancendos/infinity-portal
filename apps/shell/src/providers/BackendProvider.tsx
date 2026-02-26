@@ -433,6 +433,114 @@ export function useNotifications() {
 
 // --- Hook: WebSocket ---
 
+// ── Project & IT Management Hooks ──────────────────────────
+
+export function useITSM() {
+  const { apiCall } = useBackend();
+  return {
+    getIncidents: (params?: Record<string, string>) => apiCall(`/itsm/incidents?${new URLSearchParams(params || {})}`),
+    getIncident: (id: string) => apiCall(`/itsm/incidents/${id}`),
+    createIncident: (data: any) => apiCall('/itsm/incidents', { method: 'POST', body: JSON.stringify(data) }),
+    updateIncident: (id: string, data: any) => apiCall(`/itsm/incidents/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    acknowledgeIncident: (id: string) => apiCall(`/itsm/incidents/${id}/acknowledge`, { method: 'POST' }),
+    resolveIncident: (id: string, resolution: string) => apiCall(`/itsm/incidents/${id}/resolve`, { method: 'POST', body: JSON.stringify({ resolution }) }),
+    escalateIncident: (id: string) => apiCall(`/itsm/incidents/${id}/escalate`, { method: 'POST' }),
+    getDashboard: () => apiCall('/itsm/incidents/dashboard'),
+    getProblems: () => apiCall('/itsm/problems'),
+    createProblem: (data: any) => apiCall('/itsm/problems', { method: 'POST', body: JSON.stringify(data) }),
+    getChanges: (params?: Record<string, string>) => apiCall(`/itsm/changes?${new URLSearchParams(params || {})}`),
+    createChange: (data: any) => apiCall('/itsm/changes', { method: 'POST', body: JSON.stringify(data) }),
+    approveChange: (id: string) => apiCall(`/itsm/changes/${id}/approve`, { method: 'POST' }),
+    getSLAs: () => apiCall('/itsm/slas'),
+    getCMDBItems: () => apiCall('/itsm/cmdb'),
+  };
+}
+
+export function useGates() {
+  const { apiCall } = useBackend();
+  return {
+    getProjects: () => apiCall('/gates/projects'),
+    getProject: (id: string) => apiCall(`/gates/projects/${id}`),
+    createProject: (data: any) => apiCall('/gates/projects', { method: 'POST', body: JSON.stringify(data) }),
+    updateProject: (id: string, data: any) => apiCall(`/gates/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    submitGate: (projectId: string, gateNum: number) => apiCall(`/gates/projects/${projectId}/gates/${gateNum}/submit`, { method: 'POST' }),
+    reviewGate: (projectId: string, gateNum: number, data: any) => apiCall(`/gates/projects/${projectId}/gates/${gateNum}/review`, { method: 'POST', body: JSON.stringify(data) }),
+    verifyCriteria: (projectId: string, gateNum: number, criteriaId: string) => apiCall(`/gates/projects/${projectId}/gates/${gateNum}/criteria/${criteriaId}/verify`, { method: 'POST' }),
+    getReport: (projectId: string) => apiCall(`/gates/projects/${projectId}/report`),
+  };
+}
+
+export function useDocuments() {
+  const { apiCall } = useBackend();
+  return {
+    getDocs: (params?: Record<string, string>) => apiCall(`/documents/?${new URLSearchParams(params || {})}`),
+    getDoc: (id: string) => apiCall(`/documents/${id}`),
+    createDoc: (data: any) => apiCall('/documents/', { method: 'POST', body: JSON.stringify(data) }),
+    updateDoc: (id: string, data: any) => apiCall(`/documents/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    deleteDoc: (id: string) => apiCall(`/documents/${id}`, { method: 'DELETE' }),
+    getTags: () => apiCall('/documents/tags/all'),
+    getCategories: () => apiCall('/documents/categories'),
+    createCategory: (data: any) => apiCall('/documents/categories', { method: 'POST', body: JSON.stringify(data) }),
+    getSyncConfigs: () => apiCall('/documents/sync/configs'),
+    setupSync: (data: any) => apiCall('/documents/sync/setup', { method: 'POST', body: JSON.stringify(data) }),
+    triggerSync: (configId: string) => apiCall(`/documents/sync/${configId}/trigger`, { method: 'POST' }),
+    getDuplicates: () => apiCall('/documents/duplicates?status=pending'),
+    getStats: () => apiCall('/documents/library/stats'),
+  };
+}
+
+export function useAssets() {
+  const { apiCall } = useBackend();
+  return {
+    getAssets: (params?: Record<string, string>) => apiCall(`/assets/?${new URLSearchParams(params || {})}`),
+    getAsset: (id: string) => apiCall(`/assets/${id}`),
+    createAsset: (data: any) => apiCall('/assets/', { method: 'POST', body: JSON.stringify(data) }),
+    updateAsset: (id: string, data: any) => apiCall(`/assets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    getRelationships: (id: string) => apiCall(`/assets/${id}/relationships`),
+    createRelationship: (data: any) => apiCall('/assets/relationships', { method: 'POST', body: JSON.stringify(data) }),
+    getLifecycle: (id: string) => apiCall(`/assets/${id}/lifecycle`),
+    getMaintenance: (params?: Record<string, string>) => apiCall(`/assets/maintenance?${new URLSearchParams(params || {})}`),
+    scheduleMaintenance: (data: any) => apiCall('/assets/maintenance', { method: 'POST', body: JSON.stringify(data) }),
+    getDashboard: () => apiCall('/assets/dashboard'),
+  };
+}
+
+export function useKnowledgeBase() {
+  const { apiCall } = useBackend();
+  return {
+    getArticles: (params?: Record<string, string>) => apiCall(`/kb/articles?${new URLSearchParams(params || {})}`),
+    getArticle: (slug: string) => apiCall(`/kb/articles/${slug}`),
+    createArticle: (data: any) => apiCall('/kb/articles', { method: 'POST', body: JSON.stringify(data) }),
+    updateArticle: (slug: string, data: any) => apiCall(`/kb/articles/${slug}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    markHelpful: (id: string) => apiCall(`/kb/articles/${id}/helpful`, { method: 'POST' }),
+    getVersions: (slug: string) => apiCall(`/kb/articles/${slug}/versions`),
+    getCategories: () => apiCall('/kb/categories'),
+    createCategory: (data: any) => apiCall('/kb/categories', { method: 'POST', body: JSON.stringify(data) }),
+    getLearningPaths: () => apiCall('/kb/learning-paths'),
+    createLearningPath: (data: any) => apiCall('/kb/learning-paths', { method: 'POST', body: JSON.stringify(data) }),
+    getInsights: () => apiCall('/kb/ai/insights'),
+    triggerExtraction: (data: any) => apiCall('/kb/ai/extract', { method: 'POST', body: JSON.stringify(data) }),
+    getStats: () => apiCall('/kb/stats'),
+  };
+}
+
+export function useDependencies() {
+  const { apiCall } = useBackend();
+  return {
+    getMaps: () => apiCall('/deps/maps'),
+    getMap: (id: string) => apiCall(`/deps/maps/${id}`),
+    createMap: (data: any) => apiCall('/deps/maps', { method: 'POST', body: JSON.stringify(data) }),
+    addNode: (mapId: string, data: any) => apiCall(`/deps/maps/${mapId}/nodes`, { method: 'POST', body: JSON.stringify(data) }),
+    addEdge: (mapId: string, data: any) => apiCall(`/deps/maps/${mapId}/edges`, { method: 'POST', body: JSON.stringify(data) }),
+    getImpact: (mapId: string, nodeId: string) => apiCall(`/deps/maps/${mapId}/impact-analysis/${nodeId}`),
+    getChains: () => apiCall('/deps/chains'),
+    createChain: (data: any) => apiCall('/deps/chains', { method: 'POST', body: JSON.stringify(data) }),
+    executeChain: (chainId: string) => apiCall(`/deps/chains/${chainId}/execute`, { method: 'POST' }),
+    getRepoHealth: () => apiCall('/deps/repos/health'),
+    syncRepo: (configId: string) => apiCall(`/deps/repos/${configId}/sync`, { method: 'POST' }),
+  };
+}
+
 export function useWebSocket() {
   const { getToken } = useBackend();
   const wsRef = useRef<WebSocket | null>(null);
