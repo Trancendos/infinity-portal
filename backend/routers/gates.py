@@ -295,7 +295,7 @@ async def update_project(
     if not project:
         raise HTTPException(404, "Project not found")
 
-    for field, value in body.dict(exclude_unset=True).items():
+    for field, value in body.model_dump(exclude_unset=True).items():
         if value is not None:
             setattr(project, field, value)
 

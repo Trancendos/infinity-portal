@@ -342,7 +342,7 @@ async def update_document(
     if not doc:
         raise HTTPException(404, "Document not found")
 
-    for field, value in body.dict(exclude_unset=True).items():
+    for field, value in body.model_dump(exclude_unset=True).items():
         if field != "tags" and value is not None:
             setattr(doc, field, value)
 

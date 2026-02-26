@@ -332,7 +332,7 @@ async def update_incident(
         raise HTTPException(404, "Incident not found")
 
     changes = {}
-    for field, value in body.dict(exclude_unset=True).items():
+    for field, value in body.model_dump(exclude_unset=True).items():
         if value is not None:
             old_val = getattr(incident, field)
             setattr(incident, field, value)
@@ -585,7 +585,7 @@ async def update_problem(
     problem = result.scalars().first()
     if not problem:
         raise HTTPException(404, "Problem not found")
-    for field, value in body.dict(exclude_unset=True).items():
+    for field, value in body.model_dump(exclude_unset=True).items():
         if value is not None:
             setattr(problem, field, value)
     await db.commit()
@@ -685,7 +685,7 @@ async def update_change(
     change = result.scalars().first()
     if not change:
         raise HTTPException(404, "Change not found")
-    for field, value in body.dict(exclude_unset=True).items():
+    for field, value in body.model_dump(exclude_unset=True).items():
         if value is not None:
             setattr(change, field, value)
     await db.commit()

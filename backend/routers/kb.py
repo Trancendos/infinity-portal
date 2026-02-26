@@ -253,7 +253,7 @@ async def update_article(
         raise HTTPException(404, "Article not found")
 
     content_changed = False
-    for field, value in body.dict(exclude_unset=True).items():
+    for field, value in body.model_dump(exclude_unset=True).items():
         if field == "change_summary":
             continue
         if value is not None:
