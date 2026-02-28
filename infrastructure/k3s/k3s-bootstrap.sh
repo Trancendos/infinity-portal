@@ -26,6 +26,33 @@ ROLE="server"
 K3S_SERVER_IP="${K3S_SERVER_IP:-}"
 K3S_VERSION="v1.28.4+k3s2"
 
+# ============================================================
+# ARCHITECTURE DETECTION
+# Automatically detects ARM64/AMD64/ARMv7 and configures
+# appropriate K3s binary and node labels for scheduling.
+# ============================================================
+detect_architecture() {
+  local raw_arch
+  raw_arch=$(uname -m)
+  case "$raw_arch" in
+    x86_64)   K3S_ARCH="amd64"  ;;
+    aarch64)  K3S_ARCH="arm64"  ;;
+    armv7l)   K3S_ARCH="armhf"  ;;
+    *)
+      echo "⚠ Unsupported architecture: $raw_arch"
+      echo "  Supported: x86_64 (amd64), aarch64 (arm64), armv7l (armhf)"
+      exit 1
+      ;;
+  esac
+  echo "╔══════════════════════════════════════╗"
+  echo "║  Architecture Detection              ║"
+  echo "║  Raw:  $raw_arch                     "
+  echo "║  K3s:  $K3S_ARCH                     "
+  echo "╚══════════════════════════════════════╝"
+}
+
+detect_architecture
+
 # Parse args
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -80,7 +107,15 @@ setup_server() {
   echo "[K3s] Waiting for K3s to be ready..."
   until kubectl get nodes &>/dev/null 2>&1; do sleep 2; done
 
-  echo "[K3s] ✓ Server node ready"
+  # Label node with detected architecture for workload scheduling
+  echo "[K3s] Labeling node with architecture: $K3S_ARCH"
+  kubectl label node "$(hostname)" \
+    "kubernetes.io/arch=$K3S_ARCH" \
+    "infinity-os/arch=$K3S_ARCH" \
+    "infinity-os/role=server" \
+    --overwrite
+
+  echo "[K3s] ✓ Server node ready (arch: $K3S_ARCH)"
   echo ""
   echo "Node token (share with agent nodes):"
   sudo cat /var/lib/rancher/k3s/server/node-token
@@ -113,7 +148,15 @@ setup_agent() {
     sh -s - agent \
       --node-label "infinity-os/role=agent"
 
-  echo "[K3s] ✓ Agent node joined cluster"
+  # Label agent node with detected architecture
+  echo "[K3s] Labeling agent node with architecture: $K3S_ARCH"
+  # Note: kubectl may not be available on agent nodes; labeling
+  # should be done from the server node after join:
+  #   kubectl label node <agent-hostname> kubernetes.io/arch=$K3S_ARCH --overwrite
+  echo "[K3s] ✓ Agent node joined cluster (arch: $K3S_ARCH)"
+  echo ""
+  echo "  ℹ Label this node from the server:"
+  echo "    kubectl label node $(hostname) kubernetes.io/arch=$K3S_ARCH infinity-os/arch=$K3S_ARCH infinity-os/role=agent --overwrite"
 }
 
 # ============================================================

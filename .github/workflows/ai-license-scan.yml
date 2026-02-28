@@ -1,0 +1,238 @@
+# ============================================================
+# AI License Compliance Scanner
+# ISO 27001: A.18.1 — Compliance with legal and contractual requirements
+#
+# Scans model metadata, agent configurations, and dependencies
+# to ensure all AI components use approved licenses.
+# Blocks PRs that introduce non-approved licenses.
+# ============================================================
+
+name: AI License Compliance
+
+on:
+  pull_request:
+    paths:
+      - 'packages/agent-sdk/**'
+      - 'docs/agent-specs/**'
+      - 'docs/ai-canon/**'
+      - 'templates/agent-template/**'
+      - 'backend/routers/ai.py'
+      - 'backend/routers/compliance.py'
+      - '**/requirements.txt'
+      - '**/package.json'
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly Monday 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  # Licenses approved for commercial use and marketplace distribution
+  ALLOWED_LICENSES: >-
+    MIT
+    Apache-2.0
+    BSD-2-Clause
+    BSD-3-Clause
+    ISC
+    CC-BY-4.0
+    CC0-1.0
+    Unlicense
+    0BSD
+    BlueOak-1.0.0
+    PSF-2.0
+
+  # Licenses that require legal review before adoption
+  REVIEW_REQUIRED: >-
+    MPL-2.0
+    LGPL-2.1
+    LGPL-3.0
+    EPL-1.0
+    EPL-2.0
+    CDDL-1.0
+
+  # Licenses that are NOT permitted (copyleft, viral)
+  BLOCKED_LICENSES: >-
+    GPL-2.0
+    GPL-3.0
+    AGPL-3.0
+    SSPL-1.0
+    CC-BY-NC-4.0
+    CC-BY-NC-SA-4.0
+    Elastic-2.0
+    BSL-1.1
+
+jobs:
+  scan-python-licenses:
+    name: Scan Python Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pip-licenses
+        run: pip install pip-licenses
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt 2>/dev/null || true
+
+      - name: Scan Python licenses
+        id: python-scan
+        run: |
+          cd backend
+          pip-licenses --format=json --with-urls --with-description > /tmp/python-licenses.json
+
+          echo "## Python Dependency Licenses" > /tmp/license-report.md
+          echo "" >> /tmp/license-report.md
+
+          VIOLATIONS=0
+          WARNINGS=0
+
+          while IFS= read -r line; do
+            name=$(echo "$line" | jq -r '.Name')
+            license=$(echo "$line" | jq -r '.License')
+            version=$(echo "$line" | jq -r '.Version')
+
+            # Check blocked
+            for blocked in $BLOCKED_LICENSES; do
+              if echo "$license" | grep -qi "$blocked"; then
+                echo "❌ BLOCKED: $name ($version) — $license" >> /tmp/license-report.md
+                VIOLATIONS=$((VIOLATIONS + 1))
+              fi
+            done
+
+            # Check review required
+            for review in $REVIEW_REQUIRED; do
+              if echo "$license" | grep -qi "$review"; then
+                echo "⚠️ REVIEW: $name ($version) — $license" >> /tmp/license-report.md
+                WARNINGS=$((WARNINGS + 1))
+              fi
+            done
+          done < <(jq -c '.[]' /tmp/python-licenses.json)
+
+          echo "" >> /tmp/license-report.md
+          echo "**Summary:** $VIOLATIONS violations, $WARNINGS requiring review" >> /tmp/license-report.md
+
+          echo "violations=$VIOLATIONS" >> $GITHUB_OUTPUT
+          echo "warnings=$WARNINGS" >> $GITHUB_OUTPUT
+
+          if [ $VIOLATIONS -gt 0 ]; then
+            echo "❌ License violations found!"
+            cat /tmp/license-report.md
+            exit 1
+          fi
+
+  scan-node-licenses:
+    name: Scan Node.js Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install license-checker
+        run: npm install -g license-checker
+
+      - name: Scan Node.js licenses
+        run: |
+          # Scan root package
+          if [ -f package.json ]; then
+            npm install --ignore-scripts 2>/dev/null || true
+            license-checker --json --out /tmp/node-licenses.json 2>/dev/null || true
+          fi
+
+          # Check for blocked licenses
+          VIOLATIONS=0
+          if [ -f /tmp/node-licenses.json ]; then
+            for blocked in $BLOCKED_LICENSES; do
+              count=$(jq -r "to_entries[] | select(.value.licenses | test(&quot;$blocked&quot;; &quot;i&quot;)) | .key" /tmp/node-licenses.json 2>/dev/null | wc -l)
+              if [ "$count" -gt 0 ]; then
+                echo "❌ Found $count packages with blocked license: $blocked"
+                jq -r "to_entries[] | select(.value.licenses | test(&quot;$blocked&quot;; &quot;i&quot;)) | &quot;  - \\(.key): \\(.value.licenses)&quot;" /tmp/node-licenses.json
+                VIOLATIONS=$((VIOLATIONS + count))
+              fi
+            done
+          fi
+
+          if [ $VIOLATIONS -gt 0 ]; then
+            echo "❌ License violations found!"
+            exit 1
+          fi
+
+          echo "✅ All Node.js dependencies have approved licenses"
+
+  scan-agent-metadata:
+    name: Scan Agent & Model Metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan agent specifications
+        run: |
+          echo "## Agent & Model License Scan" > /tmp/agent-report.md
+          VIOLATIONS=0
+
+          # Scan agent spec files for license declarations
+          find docs/agent-specs -name "*.md" -type f 2>/dev/null | while read f; do
+            license=$(grep -i "^license:" "$f" 2>/dev/null | head -1 | cut -d: -f2 | tr -d ' ' || echo "")
+            if [ -n "$license" ]; then
+              approved=false
+              for allowed in $ALLOWED_LICENSES; do
+                if echo "$license" | grep -qi "$allowed"; then
+                  approved=true
+                  break
+                fi
+              done
+              if [ "$approved" = "false" ]; then
+                echo "❌ $f has unapproved license: $license" >> /tmp/agent-report.md
+                VIOLATIONS=$((VIOLATIONS + 1))
+              else
+                echo "✅ $f: $license" >> /tmp/agent-report.md
+              fi
+            fi
+          done
+
+          # Scan AI canon for license references
+          find docs/ai-canon -name "*.md" -type f 2>/dev/null | while read f; do
+            if grep -qi "license" "$f" 2>/dev/null; then
+              echo "ℹ️ License reference found in: $f" >> /tmp/agent-report.md
+            fi
+          done
+
+          cat /tmp/agent-report.md
+
+          if [ $VIOLATIONS -gt 0 ]; then
+            echo "❌ Agent license violations found!"
+            exit 1
+          fi
+
+          echo "✅ All agent specifications have approved licenses"
+
+  report:
+    name: Generate Compliance Report
+    runs-on: ubuntu-latest
+    needs: [scan-python-licenses, scan-node-licenses, scan-agent-metadata]
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "# AI License Compliance Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Date:** $(date -u +%Y-%m-%d)" >> $GITHUB_STEP_SUMMARY
+          echo "**Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Python Dependencies | ${{ needs.scan-python-licenses.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Node.js Dependencies | ${{ needs.scan-node-licenses.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Agent Metadata | ${{ needs.scan-agent-metadata.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
