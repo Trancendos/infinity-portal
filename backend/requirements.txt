@@ -23,7 +23,7 @@ c2pa-python>=0.6.0
 # Utilities
 python-multipart==0.0.22
 python-dotenv==1.0.1
-orjson==3.10.13
+orjson==3.11.7
 
 # Observability
 structlog==24.4.0
