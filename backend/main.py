@@ -212,6 +212,7 @@ from routers import (
     billing, workflows, artifacts, errors, security,
     observability, compliance_frameworks, vulnerability,
     codegen, agent_manager, agent_memory,
+    self_healing, adaptive_engine,
 )
 from routers import version_history as version_history_router
 
@@ -254,6 +255,9 @@ app.include_router(version_history_router.router)
 # Agent Control Plane & Memory (adopted from conversation artifacts)
 app.include_router(agent_manager.router)
 app.include_router(agent_memory.router)
+# Self-Healing & Adaptive Intelligence (2060 future-proofing)
+app.include_router(self_healing.router)
+app.include_router(adaptive_engine.router)
 
 
 # ============================================================
