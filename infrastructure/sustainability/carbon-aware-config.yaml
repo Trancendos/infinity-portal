@@ -1,0 +1,143 @@
+# ============================================================
+# Carbon-Aware Scheduling Configuration — Infinity OS
+# 2060 Standard: Sustainability & Environmental Compliance
+#
+# Enables workload scheduling based on grid carbon intensity.
+# Uses WattTime API (free tier: 30 requests/hour) or
+# Electricity Maps API (free tier: available).
+#
+# When carbon intensity is HIGH:
+#   - Defer non-critical batch jobs
+#   - Reduce agent concurrency
+#   - Postpone model training
+#
+# When carbon intensity is LOW:
+#   - Run deferred batch jobs
+#   - Increase agent concurrency
+#   - Execute model training
+#
+# ISO 14001: Environmental management alignment
+# EU Taxonomy: Sustainable digital infrastructure
+# ============================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: carbon-aware-config
+  namespace: infinity-os
+  labels:
+    app: infinity-os
+    component: sustainability
+    standard: "2060"
+data:
+  config.yaml: |
+    # Carbon-Aware Scheduling Configuration
+    version: "1.0.0"
+
+    # Data provider configuration
+    providers:
+      primary:
+        name: "watttime"
+        api_url: "https://api.watttime.org/v3"
+        # Credentials via environment variables:
+        #   WATTTIME_USERNAME, WATTTIME_PASSWORD
+        region: "CAISO_NORTH"  # Default region
+        poll_interval_minutes: 15
+        cache_ttl_minutes: 10
+
+      fallback:
+        name: "electricity_maps"
+        api_url: "https://api.electricitymap.org/v3"
+        # Credentials via: ELECTRICITY_MAPS_TOKEN
+        zone: "GB"  # Default zone
+        poll_interval_minutes: 15
+
+    # Carbon intensity thresholds (gCO2eq/kWh)
+    thresholds:
+      low: 100       # Green — run everything
+      medium: 250    # Amber — normal operations
+      high: 400      # Red — defer non-critical work
+      critical: 600  # Emergency — minimal operations only
+
+    # Workload classification
+    workloads:
+      critical:
+        # Always run regardless of carbon intensity
+        description: "User-facing, real-time operations"
+        services:
+          - "backend-api"
+          - "identity-worker"
+          - "auth-service"
+          - "websocket"
+        min_replicas: 1
+        defer_allowed: false
+
+      standard:
+        # Run normally, reduce concurrency when HIGH
+        description: "Standard operations with flexibility"
+        services:
+          - "agent-manager"
+          - "notification-service"
+          - "compliance-checker"
+        scaling_policy:
+          low_carbon: { replicas: 3, concurrency: 10 }
+          medium_carbon: { replicas: 2, concurrency: 8 }
+          high_carbon: { replicas: 1, concurrency: 4 }
+        defer_allowed: false
+
+      deferrable:
+        # Can be postponed to low-carbon periods
+        description: "Batch jobs and background processing"
+        services:
+          - "vulnerability-scanner"
+          - "dependency-auditor"
+          - "report-generator"
+          - "backup-service"
+        max_defer_hours: 6
+        preferred_carbon: "low"
+        defer_allowed: true
+
+      training:
+        # AI model training — highly deferrable
+        description: "AI model training and fine-tuning"
+        services:
+          - "model-trainer"
+          - "embedding-generator"
+          - "knowledge-indexer"
+        max_defer_hours: 24
+        preferred_carbon: "low"
+        defer_allowed: true
+
+    # Scheduling rules
+    scheduling:
+      # Time-based overrides (UTC)
+      time_windows:
+        # Typically lower carbon at night
+        preferred_hours: [0, 1, 2, 3, 4, 5, 22, 23]
+        avoid_hours: [8, 9, 10, 17, 18, 19]  # Peak demand
+
+      # Day-based preferences
+      preferred_days: ["saturday", "sunday"]  # Lower industrial demand
+
+    # Metrics and reporting
+    metrics:
+      enabled: true
+      prometheus_endpoint: "/metrics/carbon"
+      report_interval_hours: 24
+      track_carbon_saved: true
+      track_deferred_jobs: true
+
+    # Dashboard integration
+    dashboard:
+      widget_enabled: true
+      show_current_intensity: true
+      show_forecast: true
+      show_savings: true
+
+---
+# ── Python Integration Module ──────────────────────────────
+# Save as: backend/carbon_scheduler.py
+
+# This ConfigMap is consumed by the carbon_scheduler module
+# which integrates with the adaptive engine and agent manager
+# to make carbon-aware scheduling decisions.
