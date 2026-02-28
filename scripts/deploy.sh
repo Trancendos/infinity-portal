@@ -113,6 +113,22 @@ preflight_checks() {
   fi
   log "✓ Node.js version: $(node --version)"
 
+  # Detect architecture for Docker builds
+  local raw_arch
+  raw_arch=$(uname -m)
+  case "$raw_arch" in
+    x86_64)  DEPLOY_ARCH="amd64" ;;
+    aarch64) DEPLOY_ARCH="arm64" ;;
+    armv7l)  DEPLOY_ARCH="armhf" ;;
+    *)       DEPLOY_ARCH="amd64" ;;
+  esac
+  log "✓ Architecture detected: $raw_arch → $DEPLOY_ARCH"
+
+  if [[ "$DEPLOY_ARCH" == "arm64" ]]; then
+    export DOCKER_DEFAULT_PLATFORM="linux/arm64"
+    log "✓ Docker platform set to linux/arm64"
+  fi
+
   # Check required env vars
   local required_vars=(
     "DOMAIN"

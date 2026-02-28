@@ -1,0 +1,183 @@
+# ============================================================
+# Living Documentation — Auto-generated API Docs
+# ISO 27001: A.8.25 — Secure development lifecycle
+#
+# Builds TypeDoc (TypeScript) and rustdoc (Rust) on every push
+# to main, deploys to GitHub Pages. Ensures documentation is
+# always in sync with code.
+# ============================================================
+
+name: Deploy Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'apps/shell/src/**'
+      - 'backend/**/*.py'
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── TypeScript Documentation ──────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile || pnpm install
+
+      - name: Install TypeDoc
+        run: pnpm add -Dw typedoc typedoc-plugin-markdown
+
+      - name: Generate TypeDoc
+        run: |
+          npx typedoc \
+            --entryPoints packages/agent-sdk/src/index.ts \
+            --entryPoints packages/kernel/src/index.ts \
+            --entryPoints packages/types/src/index.ts \
+            --out docs/_generated/typescript \
+            --plugin typedoc-plugin-markdown \
+            --readme none \
+            --name "Infinity OS TypeScript API" \
+            --excludePrivate \
+            --excludeInternal || echo "TypeDoc generation completed with warnings"
+
+      # ── Rust Documentation ────────────────────────────────
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Generate rustdoc
+        run: |
+          if [ -f packages/policy-engine/Cargo.toml ]; then
+            cd packages/policy-engine
+            cargo doc --no-deps --document-private-items 2>/dev/null || echo "rustdoc completed with warnings"
+            if [ -d target/doc ]; then
+              mkdir -p ../../docs/_generated/rust
+              cp -r target/doc/* ../../docs/_generated/rust/
+            fi
+            cd ../..
+          fi
+
+      # ── Python Documentation ──────────────────────────────
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Generate Python docs
+        run: |
+          pip install pdoc3 2>/dev/null || pip install pdoc
+          if [ -d backend/routers ]; then
+            mkdir -p docs/_generated/python
+            python -m pdoc --html --output-dir docs/_generated/python \
+              backend/routers backend/models.py backend/main.py 2>/dev/null || \
+              echo "Python doc generation completed with warnings"
+          fi
+
+      # ── Build Documentation Site ──────────────────────────
+      - name: Create documentation index
+        run: |
+          cat > docs/_generated/index.html << 'HEREDOC'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Infinity OS — API Documentation</title>
+            <style>
+              :root { --bg: #0a0a0a; --fg: #e0e0e0; --accent: #6366f1; --card: #1a1a2e; }
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; padding: 2rem; }
+              .container { max-width: 900px; margin: 0 auto; }
+              h1 { font-size: 2.5rem; margin-bottom: 0.5rem; background: linear-gradient(135deg, var(--accent), #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+              .subtitle { color: #888; margin-bottom: 2rem; font-size: 1.1rem; }
+              .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-top: 2rem; }
+              .card { background: var(--card); border-radius: 12px; padding: 1.5rem; border: 1px solid #2a2a4a; transition: transform 0.2s, border-color 0.2s; }
+              .card:hover { transform: translateY(-2px); border-color: var(--accent); }
+              .card h3 { color: var(--accent); margin-bottom: 0.5rem; }
+              .card p { color: #aaa; font-size: 0.9rem; line-height: 1.5; }
+              .card a { display: inline-block; margin-top: 1rem; color: var(--accent); text-decoration: none; font-weight: 500; }
+              .card a:hover { text-decoration: underline; }
+              .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-right: 4px; }
+              .badge-ts { background: #3178c6; color: white; }
+              .badge-rs { background: #dea584; color: #1a1a1a; }
+              .badge-py { background: #3776ab; color: white; }
+              footer { margin-top: 3rem; text-align: center; color: #555; font-size: 0.85rem; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>∞ Infinity OS</h1>
+              <p class="subtitle">Auto-generated API Documentation — updated on every commit</p>
+              <div class="grid">
+                <div class="card">
+                  <h3>Agent SDK</h3>
+                  <span class="badge badge-ts">TypeScript</span>
+                  <p>Base agent class, event bus, types, and logger for building Trancendos AI agents.</p>
+                  <a href="./typescript/">Browse TypeScript Docs →</a>
+                </div>
+                <div class="card">
+                  <h3>Policy Engine</h3>
+                  <span class="badge badge-rs">Rust</span>
+                  <p>High-performance policy evaluation engine for compliance and access control.</p>
+                  <a href="./rust/">Browse Rust Docs →</a>
+                </div>
+                <div class="card">
+                  <h3>Backend API</h3>
+                  <span class="badge badge-py">Python</span>
+                  <p>FastAPI routers, database models, and core business logic.</p>
+                  <a href="./python/">Browse Python Docs →</a>
+                </div>
+                <div class="card">
+                  <h3>Architecture</h3>
+                  <p>Ecosystem architecture, ADRs, agent specifications, and deployment guides.</p>
+                  <a href="https://github.com/Trancendos/infinity-portal/tree/main/docs">Browse on GitHub →</a>
+                </div>
+              </div>
+              <footer>
+                <p>Infinity OS v3.0 — Trancendos © 2025 — Auto-generated by CI/CD</p>
+              </footer>
+            </div>
+          </body>
+          </html>
+          HEREDOC
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_generated
+
+  deploy:
+    name: Deploy to GitHub Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

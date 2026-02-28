@@ -211,7 +211,7 @@ from routers import (
     itsm, gates, documents, assets, kb, deps,
     billing, workflows, artifacts, errors, security,
     observability, compliance_frameworks, vulnerability,
-    codegen,
+    codegen, agent_manager, agent_memory,
 )
 from routers import version_history as version_history_router
 
@@ -251,6 +251,9 @@ app.include_router(vulnerability.router)
 # Ecosystem expansion — Sprint 2
 app.include_router(codegen.router)
 app.include_router(version_history_router.router)
+# Agent Control Plane & Memory (adopted from conversation artifacts)
+app.include_router(agent_manager.router)
+app.include_router(agent_memory.router)
 
 
 # ============================================================

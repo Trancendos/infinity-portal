@@ -1,0 +1,173 @@
+# ============================================================
+# Blackbox Exporter — External Endpoint Monitoring
+# ISO 27001: A.8.16 — Monitoring activities
+#
+# Probes external endpoints to verify availability from
+# outside the cluster. Complements internal Prometheus scraping.
+#
+# Deploy: kubectl apply -f infrastructure/monitoring/blackbox.yaml
+# Docker: Add to docker-compose.prod.yml services
+# ============================================================
+
+# --- ConfigMap: Blackbox Exporter Configuration ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blackbox-exporter-config
+  namespace: monitoring
+  labels:
+    app: blackbox-exporter
+    component: monitoring
+data:
+  blackbox.yml: |
+    modules:
+      # Standard HTTP 2xx check
+      http_2xx:
+        prober: http
+        timeout: 10s
+        http:
+          valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+          valid_status_codes: [200]
+          method: GET
+          follow_redirects: true
+          preferred_ip_protocol: ip4
+
+      # HTTPS with TLS verification
+      https_2xx:
+        prober: http
+        timeout: 10s
+        http:
+          valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+          valid_status_codes: [200]
+          method: GET
+          follow_redirects: true
+          preferred_ip_protocol: ip4
+          tls_config:
+            insecure_skip_verify: false
+
+      # Health endpoint check (expects JSON with status field)
+      http_health:
+        prober: http
+        timeout: 5s
+        http:
+          valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+          valid_status_codes: [200]
+          method: GET
+          fail_if_body_not_matches_regexp:
+            - '"status"\s*:\s*"(ok|healthy|UP)"'
+
+      # TCP port check
+      tcp_connect:
+        prober: tcp
+        timeout: 5s
+
+      # DNS resolution check
+      dns_resolve:
+        prober: dns
+        timeout: 5s
+        dns:
+          query_name: "trancendos.com"
+          query_type: "A"
+          valid_rcodes:
+            - NOERROR
+
+---
+# --- Deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blackbox-exporter
+  namespace: monitoring
+  labels:
+    app: blackbox-exporter
+    component: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: blackbox-exporter
+  template:
+    metadata:
+      labels:
+        app: blackbox-exporter
+        component: monitoring
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9115"
+    spec:
+      containers:
+        - name: blackbox-exporter
+          image: prom/blackbox-exporter:v0.24.0
+          args:
+            - "--config.file=/config/blackbox.yml"
+          ports:
+            - name: http
+              containerPort: 9115
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      volumes:
+        - name: config
+          configMap:
+            name: blackbox-exporter-config
+
+---
+# --- Service ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: blackbox-exporter
+  namespace: monitoring
+  labels:
+    app: blackbox-exporter
+    component: monitoring
+spec:
+  selector:
+    app: blackbox-exporter
+  ports:
+    - name: http
+      port: 9115
+      targetPort: 9115
+      protocol: TCP
+
+---
+# --- Prometheus Scrape Config (add to prometheus.yml) ---
+# Add the following job to infrastructure/monitoring/prometheus.yml:
+#
+#   - job_name: 'blackbox-endpoints'
+#     metrics_path: /probe
+#     params:
+#       module: [http_health]
+#     static_configs:
+#       - targets:
+#           - https://app.trancendos.com/health
+#           - https://identity.trancendos.com/health
+#           - https://grafana.trancendos.com/api/health
+#     relabel_configs:
+#       - source_labels: [__address__]
+#         target_label: __param_target
+#       - source_labels: [__param_target]
+#         target_label: instance
+#       - target_label: __address__
+#         replacement: blackbox-exporter:9115
