@@ -9,6 +9,11 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test",
+    "test:unit": "jest --coverage",
+    "test:integration": "jest --testMatch='**/*.integration.test.ts'",
+    "test:e2e": "playwright test",
+    "test:watch": "jest --watch",
+    "test:ci": "jest --ci --coverage --maxWorkers=2",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean"
