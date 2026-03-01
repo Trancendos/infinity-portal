@@ -1,0 +1,277 @@
+version: '3.8'
+
+# Microservice Architecture for Infinity Portal
+# Each service runs independently with its own container
+
+services:
+  # API Gateway - Central entry point
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - SERVICE_NAME=api-gateway
+      - SERVICE_REGISTRY_URL=http://service-registry:8500
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - redis
+      - service-registry
+    networks:
+      - infinity-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # AI Service
+  ai-service:
+    build:
+      context: .
+      dockerfile: services/ai/Dockerfile
+    container_name: ai-service
+    ports:
+      - "8001:8001"
+    environment:
+      - NODE_ENV=production
+      - PORT=8001
+      - SERVICE_NAME=ai-service
+      - DATABASE_URL=${AI_DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - AI_MODEL_PATH=/models
+      - AI_MAX_TOKENS=4096
+    volumes:
+      - ai-models:/models
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - infinity-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+
+  # Billing Service
+  billing-service:
+    build:
+      context: .
+      dockerfile: services/billing/Dockerfile
+    container_name: billing-service
+    ports:
+      - "8002:8002"
+    environment:
+      - NODE_ENV=production
+      - PORT=8002
+      - SERVICE_NAME=billing-service
+      - DATABASE_URL=${BILLING_DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - STRIPE_API_KEY=${STRIPE_API_KEY}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - infinity-network
+    restart: unless-stopped
+
+  # Document Service
+  document-service:
+    build:
+      context: .
+      dockerfile: services/documents/Dockerfile
+    container_name: document-service
+    ports:
+      - "8003:8003"
+    environment:
+      - NODE_ENV=production
+      - PORT=8003
+      - SERVICE_NAME=document-service
+      - DATABASE_URL=${DOCUMENT_DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - MAX_DOCUMENT_SIZE=50MB
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - infinity-network
+    restart: unless-stopped
+
+  # Workflow Service
+  workflow-service:
+    build:
+      context: .
+      dockerfile: services/workflows/Dockerfile
+    container_name: workflow-service
+    ports:
+      - "8004:8004"
+    environment:
+      - NODE_ENV=production
+      - PORT=8004
+      - SERVICE_NAME=workflow-service
+      - DATABASE_URL=${WORKFLOW_DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - WORKFLOW_MAX_STEPS=100
+      - WORKFLOW_TIMEOUT=3600
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - infinity-network
+    restart: unless-stopped
+
+  # Notification Service
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notifications/Dockerfile
+    container_name: notification-service
+    ports:
+      - "8005:8005"
+    environment:
+      - NODE_ENV=production
+      - PORT=8005
+      - SERVICE_NAME=notification-service
+      - DATABASE_URL=${NOTIFICATION_DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=587
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - infinity-network
+    restart: unless-stopped
+
+  # Marketplace Service
+  marketplace-service:
+    build:
+      context: .
+      dockerfile: services/marketplace/Dockerfile
+    container_name: marketplace-service
+    ports:
+      - "8006:8006"
+    environment:
+      - NODE_ENV=production
+      - PORT=8006
+      - SERVICE_NAME=marketplace-service
+      - DATABASE_URL=${MARKETPLACE_DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - infinity-network
+    restart: unless-stopped
+
+  # Knowledge Base Service
+  knowledge-service:
+    build:
+      context: .
+      dockerfile: services/knowledge/Dockerfile
+    container_name: knowledge-service
+    ports:
+      - "8007:8007"
+    environment:
+      - NODE_ENV=production
+      - PORT=8007
+      - SERVICE_NAME=knowledge-service
+      - DATABASE_URL=${KNOWLEDGE_DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - EMBEDDING_MODEL=text-embedding-3-small
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - infinity-network
+    restart: unless-stopped
+
+  # Compliance Service
+  compliance-service:
+    build:
+      context: .
+      dockerfile: services/compliance/Dockerfile
+    container_name: compliance-service
+    ports:
+      - "8008:8008"
+    environment:
+      - NODE_ENV=production
+      - PORT=8008
+      - SERVICE_NAME=compliance-service
+      - DATABASE_URL=${COMPLIANCE_DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - COMPLIANCE_FRAMEWORKS=ISO27001,SOC2,GDPR
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - infinity-network
+    restart: unless-stopped
+
+  # Infrastructure Services
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-infinity}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-infinity}
+      - POSTGRES_DB=${POSTGRES_DB:-infinity_portal}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - infinity-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-infinity}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - infinity-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Service Registry (Consul-like)
+  service-registry:
+    image: consul:1.15
+    container_name: service-registry
+    ports:
+      - "8500:8500"
+    volumes:
+      - consul-data:/consul/data
+    networks:
+      - infinity-network
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  consul-data:
+  ai-models:
+
+networks:
+  infinity-network:
+    driver: bridge
