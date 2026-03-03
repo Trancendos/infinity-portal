@@ -1,5 +1,6 @@
 /**
  * WindowManager — Module rendering with real implementations
+ * Platform Core modules: Infinity-One, Lighthouse, HIVE, The Void, Platform Observatory
  */
 import React, { Suspense, lazy } from 'react';
 
@@ -31,6 +32,19 @@ const DependencyMap = lazy(() => import('../modules/DependencyMap'));
 const WorkflowBuilder = lazy(() => import('../modules/WorkflowBuilder'));
 const SecretsVault = lazy(() => import('../modules/SecretsVault'));
 const ObservabilityDashboard = lazy(() => import('../modules/ObservabilityDashboard'));
+
+// ─── Platform Core modules ────────────────────────────────────────────────────
+// Infinity-One: IAM & Zero-Trust Identity
+const InfinityOneDashboard = lazy(() => import('../modules/InfinityOneDashboard'));
+// Lighthouse: Cryptographic Token Hub & PQC Key Management
+const LighthouseDashboard = lazy(() => import('../modules/LighthouseDashboard'));
+// HIVE: Agent Swarm Intelligence & Orchestration (27 agents)
+const HiveDashboard = lazy(() => import('../modules/HiveDashboard'));
+// The Void: Encrypted Secrets Vault with Crypto-Shredding
+const VoidDashboard = lazy(() => import('../modules/VoidDashboard'));
+// Platform Observatory: Unified Monitoring (Prometheus + Grafana + all services)
+const PlatformObservatory = lazy(() => import('../modules/PlatformObservatory'));
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface WindowProps {
   id: string;
@@ -106,6 +120,19 @@ function ModuleRenderer({ moduleId }: { moduleId: string }) {
     'com.infinity-os.workflows': <WorkflowBuilder />,
     'com.infinity-os.secrets': <SecretsVault />,
     'com.infinity-os.observability': <ObservabilityDashboard />,
+
+    // ─── Platform Core ────────────────────────────────────────────────────────
+    // Infinity-One IAM — Zero-Trust Identity & Access Management
+    'com.infinity-os.infinity-one': <InfinityOneDashboard />,
+    // Lighthouse — Cryptographic Token Hub, UETs, PQC Key Management
+    'com.infinity-os.lighthouse': <LighthouseDashboard />,
+    // HIVE — Agent Swarm Intelligence, 27 AI Agents, Canon Governance
+    'com.infinity-os.hive': <HiveDashboard />,
+    // The Void — Encrypted Secrets Vault, Crypto-Shredding, Lighthouse-backed
+    'com.infinity-os.void': <VoidDashboard />,
+    // Platform Observatory — Unified Monitoring (Prometheus + Grafana + all services)
+    'com.infinity-os.observatory': <PlatformObservatory />,
+    // ─────────────────────────────────────────────────────────────────────────
 
     // Placeholder modules (to be implemented)
     'com.infinity-os.text-editor': <PlaceholderModule name="Text Editor" icon="📝" />,
@@ -230,7 +257,15 @@ export const MODULE_REGISTRY = [
   // Production hardening
   { id: 'com.infinity-os.workflows', name: 'Workflow Builder', icon: '⚡', category: 'automation' },
 
-  // Ecosystem expansion
+  // Security & Secrets
   { id: 'com.infinity-os.secrets', name: 'Secrets Vault', icon: '🔑', category: 'security' },
   { id: 'com.infinity-os.observability', name: 'Observability', icon: '📊', category: 'operations' },
+
+  // ─── Platform Core ─────────────────────────────────────────────────────────
+  { id: 'com.infinity-os.infinity-one', name: 'Infinity-One IAM', icon: '∞', category: 'platform-core' },
+  { id: 'com.infinity-os.lighthouse', name: 'Lighthouse', icon: '🔦', category: 'platform-core' },
+  { id: 'com.infinity-os.hive', name: 'HIVE', icon: '🐝', category: 'platform-core' },
+  { id: 'com.infinity-os.void', name: 'The Void', icon: '🌌', category: 'platform-core' },
+  { id: 'com.infinity-os.observatory', name: 'Observatory', icon: '🔭', category: 'platform-core' },
+  // ───────────────────────────────────────────────────────────────────────────
 ];

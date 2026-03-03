@@ -21,15 +21,17 @@ interface TaskbarProps {
 }
 
 const PINNED_APPS = [
-  { moduleId: 'com.infinity-os.itsm',         title: 'ITSM',          icon: '🎫' },
+  // Platform Core — always visible in taskbar
+  { moduleId: 'com.infinity-os.observatory',   title: 'Observatory',   icon: '🔭' },
+  { moduleId: 'com.infinity-os.hive',          title: 'HIVE',          icon: '🐝' },
+  { moduleId: 'com.infinity-os.infinity-one',  title: 'Infinity-One',  icon: '∞'  },
+  { moduleId: 'com.infinity-os.lighthouse',    title: 'Lighthouse',    icon: '🔦' },
+  { moduleId: 'com.infinity-os.void',          title: 'The Void',      icon: '🌌' },
+  // Separator group — productivity & ops
   { moduleId: 'com.infinity-os.kanban',        title: 'Task Board',    icon: '📋' },
-  { moduleId: 'com.infinity-os.gates',         title: 'Project Gates', icon: '🚦' },
-  { moduleId: 'com.infinity-os.documents',     title: 'Documents',     icon: '📚' },
-  { moduleId: 'com.infinity-os.dependencies',  title: 'Dependencies',  icon: '🗺' },
-  { moduleId: 'com.infinity-os.file-manager',  title: 'Files',         icon: '📁' },
+  { moduleId: 'com.infinity-os.itsm',          title: 'ITSM',          icon: '🎫' },
   { moduleId: 'com.infinity-os.terminal',      title: 'Terminal',      icon: '⌨️' },
-  { moduleId: 'com.infinity-os.secrets',       title: 'Secrets Vault', icon: '🔑' },
-  { moduleId: 'com.infinity-os.observability', title: 'Observability', icon: '📊' },
+  { moduleId: 'com.infinity-os.ai-studio',     title: 'AI Studio',     icon: '🤖' },
   { moduleId: 'com.infinity-os.settings',      title: 'Settings',      icon: '⚙️' },
 ];
 

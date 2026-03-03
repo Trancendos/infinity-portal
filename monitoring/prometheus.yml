@@ -1,4 +1,5 @@
-# Prometheus Configuration
+# Prometheus Configuration — Infinity OS Platform
+# Scrapes: Platform Core workers + infrastructure + agents + existing services
 
 global:
   scrape_interval: 15s
@@ -18,23 +19,26 @@ alerting:
 rule_files:
   - 'alerts/*.yml'
 
-# Scrape configurations
+# ─── Scrape configurations ────────────────────────────────────────────────────
 scrape_configs:
-  # Prometheus self-monitoring
+
+  # ── Self-monitoring ──────────────────────────────────────────────────────────
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
 
-  # Node Exporter - System metrics
+  # ── Infrastructure ───────────────────────────────────────────────────────────
+  # Node Exporter — Oracle ARM K3s node system metrics
   - job_name: 'node-exporter'
     static_configs:
       - targets: ['node-exporter:9100']
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance
-        replacement: 'infinity-portal-server'
+        replacement: 'oracle-arm-01'
 
-  # Application metrics
+  # ── Application ──────────────────────────────────────────────────────────────
+  # Infinity OS Shell (React PWA served via Node)
   - job_name: 'infinity-portal'
     metrics_path: '/metrics'
     static_configs:
@@ -44,7 +48,7 @@ scrape_configs:
         target_label: instance
         replacement: 'infinity-portal-app'
 
-  # API Gateway metrics
+  # API Gateway (The Nexus)
   - job_name: 'api-gateway'
     metrics_path: '/metrics'
     static_configs:
@@ -54,17 +58,130 @@ scrape_configs:
         target_label: instance
         replacement: 'infinity-portal-gateway'
 
-  # AI Service metrics
+  # FastAPI Backend
+  - job_name: 'fastapi-backend'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['backend:8000']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'infinity-portal-backend'
+
+  # AI Service
   - job_name: 'ai-service'
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['ai-service:8000']
+      - targets: ['ai-service:8001']
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance
         replacement: 'infinity-portal-ai'
 
-  # Database metrics
+  # ── Platform Core Workers ─────────────────────────────────────────────────────
+  # Infinity-One IAM Worker — identity, sessions, policy evaluation
+  - job_name: 'infinity-one'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['iam-worker:9091']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'platform-core-iam'
+      - target_label: component
+        replacement: 'infinity-one'
+
+  # Lighthouse Crypto Worker — token issuance, key rotation, PQC ops
+  - job_name: 'lighthouse'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['crypto-worker:9092']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'platform-core-lighthouse'
+      - target_label: component
+        replacement: 'lighthouse'
+
+  # HIVE Orchestration Worker — agent swarm, task queue, Canon enforcement
+  - job_name: 'hive'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['hive-worker:9093']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'platform-core-hive'
+      - target_label: component
+        replacement: 'hive'
+
+  # The Void Vault Worker — secrets, encrypted blobs, crypto-shredding
+  - job_name: 'void'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['vault-worker:9094']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'platform-core-void'
+      - target_label: component
+        replacement: 'void'
+
+  # ── AI Agents ─────────────────────────────────────────────────────────────────
+  # Tier 1 Agents — Core Intelligence
+  - job_name: 'agent-norman-ai'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['norman-ai:9200']
+    relabel_configs:
+      - target_label: agent_tier
+        replacement: '1'
+      - target_label: agent_name
+        replacement: 'norman-ai'
+
+  - job_name: 'agent-guardian-ai'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['guardian-ai:9201']
+    relabel_configs:
+      - target_label: agent_tier
+        replacement: '1'
+      - target_label: agent_name
+        replacement: 'guardian-ai'
+
+  - job_name: 'agent-mercury-ai'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['mercury-ai:9202']
+    relabel_configs:
+      - target_label: agent_tier
+        replacement: '1'
+      - target_label: agent_name
+        replacement: 'mercury-ai'
+
+  - job_name: 'agent-chronos-ai'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['chronos-ai:9203']
+    relabel_configs:
+      - target_label: agent_tier
+        replacement: '1'
+      - target_label: agent_name
+        replacement: 'chronos-ai'
+
+  - job_name: 'agent-cornelius-ai'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['cornelius-ai:9204']
+    relabel_configs:
+      - target_label: agent_tier
+        replacement: '1'
+      - target_label: agent_name
+        replacement: 'cornelius-ai'
+
+  # Tier 2 & 3 Agents — scraped via K3s pod discovery (see kubernetes-pods below)
+
+  # ── Databases ─────────────────────────────────────────────────────────────────
   - job_name: 'postgres-exporter'
     static_configs:
       - targets: ['postgres-exporter:9187']
@@ -73,7 +190,6 @@ scrape_configs:
         target_label: instance
         replacement: 'infinity-portal-db'
 
-  # Redis metrics
   - job_name: 'redis-exporter'
     static_configs:
       - targets: ['redis-exporter:9121']
@@ -82,7 +198,9 @@ scrape_configs:
         target_label: instance
         replacement: 'infinity-portal-redis'
 
-  # Kubernetes pods (if using K8s)
+  # ── K3s / Kubernetes Pod Discovery ───────────────────────────────────────────
+  # Auto-discovers all pods with prometheus.io/scrape: "true" annotation
+  # This covers Tier 2 & 3 agents, Platform Core sidecars, etc.
   - job_name: 'kubernetes-pods'
     kubernetes_sd_configs:
       - role: pod
@@ -107,3 +225,13 @@ scrape_configs:
       - source_labels: [__meta_kubernetes_pod_name]
         action: replace
         target_label: kubernetes_pod_name
+      # Add platform component label from pod labels
+      - source_labels: [__meta_kubernetes_pod_label_app_component]
+        action: replace
+        target_label: component
+      - source_labels: [__meta_kubernetes_pod_label_agent_name]
+        action: replace
+        target_label: agent_name
+      - source_labels: [__meta_kubernetes_pod_label_agent_tier]
+        action: replace
+        target_label: agent_tier

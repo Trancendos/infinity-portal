@@ -1,10 +1,11 @@
-# Alert Rules for Infinity Portal
+# Alert Rules — Infinity OS Platform
+# Covers: System, Application, Database, AI Service, Platform Core, Agents, Security
 
 groups:
+  # ── System Alerts ─────────────────────────────────────────────────────────────
   - name: system_alerts
     interval: 30s
     rules:
-      # CPU Usage
       - alert: HighCPUUsage
         expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
         for: 5m
@@ -25,7 +26,6 @@ groups:
           summary: "Critical CPU usage on {{ $labels.instance }}"
           description: "CPU usage is above 95% for 2 minutes. Current value: {{ $value }}%"
 
-      # Memory Usage
       - alert: HighMemoryUsage
         expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 80
         for: 5m
@@ -46,7 +46,6 @@ groups:
           summary: "Critical memory usage on {{ $labels.instance }}"
           description: "Memory usage is above 95% for 2 minutes. Current value: {{ $value }}%"
 
-      # Disk Usage
       - alert: HighDiskUsage
         expr: (1 - (node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})) * 100 > 80
         for: 5m
@@ -67,10 +66,10 @@ groups:
           summary: "Critical disk usage on {{ $labels.instance }}"
           description: "Disk usage is above 95% for 2 minutes. Current value: {{ $value }}%"
 
+  # ── Application Alerts ────────────────────────────────────────────────────────
   - name: application_alerts
     interval: 30s
     rules:
-      # Service Down
       - alert: ServiceDown
         expr: up == 0
         for: 5m
@@ -81,7 +80,6 @@ groups:
           summary: "Service {{ $labels.job }} is down"
           description: "Service {{ $labels.job }} on {{ $labels.instance }} has been down for 5 minutes"
 
-      # High Error Rate
       - alert: HighErrorRate
         expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
         for: 5m
@@ -92,7 +90,6 @@ groups:
           summary: "High error rate on {{ $labels.job }}"
           description: "Error rate is above 5% for 5 minutes. Current value: {{ $value | humanizePercentage }}"
 
-      # High Response Time
       - alert: HighResponseTime
         expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 5
         for: 5m
@@ -113,7 +110,6 @@ groups:
           summary: "Critical response time on {{ $labels.job }}"
           description: "95th percentile response time is above 10s for 2 minutes. Current value: {{ $value }}s"
 
-      # Low Request Rate
       - alert: LowRequestRate
         expr: rate(http_requests_total[5m]) < 10
         for: 10m
@@ -124,10 +120,10 @@ groups:
           summary: "Low request rate on {{ $labels.job }}"
           description: "Request rate is below 10 req/s for 10 minutes. Current value: {{ $value }} req/s"
 
+  # ── Database Alerts ───────────────────────────────────────────────────────────
   - name: database_alerts
     interval: 30s
     rules:
-      # Database Connection Failed
       - alert: DatabaseConnectionFailed
         expr: pg_up == 0
         for: 2m
@@ -138,7 +134,6 @@ groups:
           summary: "Database connection failed"
           description: "Cannot connect to PostgreSQL database for 2 minutes"
 
-      # High Database Connections
       - alert: HighDatabaseConnections
         expr: pg_stat_database_numbackends / pg_settings_max_connections * 100 > 80
         for: 5m
@@ -149,7 +144,6 @@ groups:
           summary: "High database connections"
           description: "Database connection usage is above 80% for 5 minutes. Current value: {{ $value }}%"
 
-      # Slow Database Queries
       - alert: SlowDatabaseQueries
         expr: rate(pg_stat_statements_mean_exec_time_ms[5m]) > 1000
         for: 5m
@@ -160,10 +154,10 @@ groups:
           summary: "Slow database queries"
           description: "Average query execution time is above 1s for 5 minutes. Current value: {{ $value }}ms"
 
+  # ── AI Service Alerts ─────────────────────────────────────────────────────────
   - name: ai_service_alerts
     interval: 30s
     rules:
-      # AI Service Down
       - alert: AIServiceDown
         expr: up{job="ai-service"} == 0
         for: 5m
@@ -174,7 +168,6 @@ groups:
           summary: "AI service is down"
           description: "AI service has been down for 5 minutes"
 
-      # High AI Latency
       - alert: HighAILatency
         expr: histogram_quantile(0.95, rate(ai_request_duration_seconds_bucket[5m])) > 30
         for: 5m
@@ -185,7 +178,6 @@ groups:
           summary: "High AI latency"
           description: "95th percentile AI request latency is above 30s for 5 minutes. Current value: {{ $value }}s"
 
-      # AI Error Rate
       - alert: HighAIErrorRate
         expr: rate(ai_requests_total{status="error"}[5m]) / rate(ai_requests_total[5m]) > 0.1
         for: 5m
@@ -195,3 +187,319 @@ groups:
         annotations:
           summary: "High AI error rate"
           description: "AI error rate is above 10% for 5 minutes. Current value: {{ $value | humanizePercentage }}"
+
+  # ── Platform Core Alerts ──────────────────────────────────────────────────────
+  - name: platform_core_alerts
+    interval: 15s
+    rules:
+      # Infinity-One IAM
+      - alert: InfinityOneDown
+        expr: up{job="infinity-one"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: infinity-one
+        annotations:
+          summary: "Infinity-One IAM is down"
+          description: "The IAM worker has been unreachable for 2 minutes. All authentication will fail."
+
+      - alert: HighIAMLatency
+        expr: histogram_quantile(0.99, rate(iam_request_duration_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: infinity-one
+        annotations:
+          summary: "High IAM latency (p99 > 500ms)"
+          description: "IAM policy evaluation is slow. Current p99: {{ $value }}s"
+
+      - alert: HighFailedLoginRate
+        expr: rate(iam_login_attempts_total{result="failure"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: infinity-one
+        annotations:
+          summary: "High failed login rate"
+          description: "More than 10 failed logins/s for 5 minutes — possible brute force. Rate: {{ $value }}/s"
+
+      - alert: CriticalFailedLoginRate
+        expr: rate(iam_login_attempts_total{result="failure"}[5m]) > 50
+        for: 2m
+        labels:
+          severity: critical
+          component: infinity-one
+        annotations:
+          summary: "Critical failed login rate — possible attack"
+          description: "More than 50 failed logins/s for 2 minutes. Rate: {{ $value }}/s"
+
+      # Lighthouse Crypto
+      - alert: LighthouseDown
+        expr: up{job="lighthouse"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: lighthouse
+        annotations:
+          summary: "Lighthouse crypto worker is down"
+          description: "Token issuance and key management unavailable for 2 minutes."
+
+      - alert: CryptoKeyExpiringSoon
+        expr: lighthouse_key_expiry_seconds < 604800
+        for: 1h
+        labels:
+          severity: warning
+          component: lighthouse
+        annotations:
+          summary: "Cryptographic key expiring within 7 days"
+          description: "Key {{ $labels.key_id }} ({{ $labels.algorithm }}) expires in {{ $value | humanizeDuration }}"
+
+      - alert: CryptoKeyCompromised
+        expr: lighthouse_key_status{status="compromised"} == 1
+        for: 0m
+        labels:
+          severity: critical
+          component: lighthouse
+        annotations:
+          summary: "CRITICAL: Cryptographic key compromised"
+          description: "Key {{ $labels.key_id }} has been marked as compromised. Immediate rotation required."
+
+      - alert: HighCryptoErrorRate
+        expr: rate(lighthouse_crypto_ops_total{result="error"}[5m]) / rate(lighthouse_crypto_ops_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          component: lighthouse
+        annotations:
+          summary: "High crypto operation error rate"
+          description: "Crypto error rate above 1% for 5 minutes. Current: {{ $value | humanizePercentage }}"
+
+      # HIVE Orchestration
+      - alert: HiveDown
+        expr: up{job="hive"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: hive
+        annotations:
+          summary: "HIVE orchestration worker is down"
+          description: "Agent swarm orchestration unavailable for 2 minutes. All agent tasks suspended."
+
+      - alert: HITLQueueBacklog
+        expr: hive_hitl_queue_depth > 5
+        for: 15m
+        labels:
+          severity: warning
+          component: hive
+        annotations:
+          summary: "HITL queue backlog — human review required"
+          description: "{{ $value }} tasks awaiting human approval for more than 15 minutes."
+
+      - alert: HITLQueueCriticalBacklog
+        expr: hive_hitl_queue_depth > 20
+        for: 5m
+        labels:
+          severity: critical
+          component: hive
+        annotations:
+          summary: "CRITICAL: HITL queue severely backlogged"
+          description: "{{ $value }} tasks awaiting human approval. Agents may be blocked."
+
+      - alert: SwarmConsensusLow
+        expr: hive_swarm_consensus_percent < 70
+        for: 10m
+        labels:
+          severity: warning
+          component: hive
+        annotations:
+          summary: "Low swarm consensus"
+          description: "Agent swarm consensus below 70% for 10 minutes. Current: {{ $value }}%"
+
+      - alert: CanonViolationDetected
+        expr: increase(hive_canon_violations_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: hive
+        annotations:
+          summary: "AI Canon violation detected"
+          description: "Agent {{ $labels.agent_name }} violated Canon principle {{ $labels.principle }}. Immediate review required."
+
+      # The Void Vault
+      - alert: VoidDown
+        expr: up{job="void"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: void
+        annotations:
+          summary: "The Void vault worker is down"
+          description: "Secret storage and retrieval unavailable for 2 minutes."
+
+      - alert: VaultSealed
+        expr: void_vault_sealed == 1
+        for: 1m
+        labels:
+          severity: critical
+          component: void
+        annotations:
+          summary: "CRITICAL: Vault is sealed"
+          description: "The Void vault has been sealed. No secrets can be read or written until unsealed."
+
+      - alert: VaultIntegrityCheckFailed
+        expr: increase(void_integrity_check_failures_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: void
+        annotations:
+          summary: "Vault integrity check failed"
+          description: "{{ $value }} integrity check failures detected. Possible data corruption."
+
+      - alert: UnauthorisedVaultAccess
+        expr: rate(void_access_denied_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: void
+        annotations:
+          summary: "High rate of unauthorised vault access attempts"
+          description: "More than 5 denied vault access attempts/s for 5 minutes. Rate: {{ $value }}/s"
+
+      - alert: SecretExpiringCritical
+        expr: void_secret_expiry_seconds{status="active"} < 86400
+        for: 1h
+        labels:
+          severity: warning
+          component: void
+        annotations:
+          summary: "Secret expiring within 24 hours"
+          description: "Secret {{ $labels.secret_name }} (owner: {{ $labels.owner }}) expires in {{ $value | humanizeDuration }}"
+
+  # ── Agent Health Alerts ───────────────────────────────────────────────────────
+  - name: agent_alerts
+    interval: 30s
+    rules:
+      - alert: AgentDown
+        expr: up{job=~"agent-.*"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          component: agent
+        annotations:
+          summary: "Agent {{ $labels.agent_name }} is down"
+          description: "Agent {{ $labels.agent_name }} (Tier {{ $labels.agent_tier }}) has been unreachable for 3 minutes."
+
+      - alert: Tier1AgentDown
+        expr: up{job=~"agent-.*", agent_tier="1"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: agent
+        annotations:
+          summary: "CRITICAL: Tier-1 agent {{ $labels.agent_name }} is down"
+          description: "Core intelligence agent {{ $labels.agent_name }} has been unreachable for 1 minute. Swarm capability degraded."
+
+      - alert: AgentHighErrorRate
+        expr: rate(agent_tasks_total{result="error"}[5m]) / rate(agent_tasks_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: agent
+        annotations:
+          summary: "High error rate for agent {{ $labels.agent_name }}"
+          description: "Agent {{ $labels.agent_name }} error rate above 5% for 5 minutes. Current: {{ $value | humanizePercentage }}"
+
+      - alert: AgentHeartbeatMissed
+        expr: time() - agent_last_heartbeat_timestamp > 60
+        for: 2m
+        labels:
+          severity: warning
+          component: agent
+        annotations:
+          summary: "Agent {{ $labels.agent_name }} missed heartbeat"
+          description: "Agent {{ $labels.agent_name }} last heartbeat was {{ $value | humanizeDuration }} ago."
+
+      - alert: AgentHighMemory
+        expr: agent_memory_usage_bytes / agent_memory_limit_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: agent
+        annotations:
+          summary: "Agent {{ $labels.agent_name }} high memory usage"
+          description: "Agent memory usage above 85%. Risk of OOMKill. Current: {{ $value }}%"
+
+      - alert: AgentOOMKillRisk
+        expr: agent_memory_usage_bytes / agent_memory_limit_bytes * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: agent
+        annotations:
+          summary: "Agent {{ $labels.agent_name }} at risk of OOMKill"
+          description: "Agent memory usage above 95%. Imminent OOMKill risk. Current: {{ $value }}%"
+
+  # ── Security Alerts ───────────────────────────────────────────────────────────
+  - name: security_alerts
+    interval: 15s
+    rules:
+      - alert: ThreatDetected
+        expr: increase(norman_ai_threats_detected_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "Security threat detected by Norman-AI"
+          description: "{{ $value }} new threat(s) detected in the last 5 minutes. Threat type: {{ $labels.threat_type }}"
+
+      - alert: CriticalThreatDetected
+        expr: increase(norman_ai_threats_detected_total{severity="critical"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: security
+        annotations:
+          summary: "CRITICAL security threat detected"
+          description: "Critical threat detected by Norman-AI. Immediate response required. Type: {{ $labels.threat_type }}"
+
+      - alert: ContainmentActivated
+        expr: guardian_ai_containment_active == 1
+        for: 0m
+        labels:
+          severity: critical
+          component: security
+        annotations:
+          summary: "Guardian-AI containment activated"
+          description: "Guardian-AI has activated containment for {{ $labels.target }}. Human review required."
+
+      - alert: HighRiskScoreUser
+        expr: iam_user_risk_score > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High risk score for user {{ $labels.user_email }}"
+          description: "User {{ $labels.user_email }} risk score is {{ $value }}. Consider account review."
+
+      - alert: ClassificationBreach
+        expr: increase(security_classification_breach_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: security
+        annotations:
+          summary: "Data classification breach detected"
+          description: "{{ $value }} classification breach event(s) in the last 5 minutes. Immediate investigation required."
+
+      - alert: PQCDowngrade
+        expr: lighthouse_pqc_downgrade_attempts_total > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: security
+        annotations:
+          summary: "PQC downgrade attack attempt detected"
+          description: "An attempt to downgrade from post-quantum to classical cryptography was detected and blocked."
