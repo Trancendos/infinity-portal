@@ -453,6 +453,45 @@ services:
     restart: unless-stopped
 
 # ──────────────────────────────────────────────
+  # WAVE 5: Ecosystem Services
+  # ──────────────────────────────────────────────
+  api-marketplace:
+    build:
+      context: ../api-marketplace
+      dockerfile: Dockerfile
+    ports:
+      - "3040:3000"
+    environment:
+      <<: *common-env
+      SERVICE_NAME: api-marketplace
+      PORT: "3000"
+      MESH_ADDRESS: "api-marketplace:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      <<: *common-healthcheck
+    networks:
+      - trancendos-mesh
+    restart: unless-stopped
+
+  artifactory:
+    build:
+      context: ../artifactory
+      dockerfile: Dockerfile
+    ports:
+      - "3041:3000"
+    environment:
+      <<: *common-env
+      SERVICE_NAME: artifactory
+      PORT: "3000"
+      MESH_ADDRESS: "artifactory:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      <<: *common-healthcheck
+    networks:
+      - trancendos-mesh
+    restart: unless-stopped
+
+# ──────────────────────────────────────────────
 # Network: Trancendos Service Mesh
 # ──────────────────────────────────────────────
 networks:
@@ -489,3 +528,5 @@ networks:
 # 3035  renik-ai            (Wave 4 — Crypto Key Mgmt)
 # 3036  sentinel-ai         (Wave 4 — Service Health)
 # 3037  solarscene-ai       (Wave 4 — Operations/Workflow)
+# 3040  api-marketplace     (Wave 5 — API Discovery/Publishing)
+# 3041  artifactory         (Wave 5 — Artifact Registry/Storage)

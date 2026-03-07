@@ -438,6 +438,41 @@ PERMISSIONS = [
     ("platform", "billing", "read", "View own billing", False, False),
     ("platform", "billing", "manage", "Manage billing/subscriptions", False, True),
     ("platform", "billing", "admin", "Full billing administration", True, True),
+
+    # ── API Marketplace ──
+    ("api-marketplace", "listings", "read", "View API listings", False, False),
+    ("api-marketplace", "listings", "create", "Publish new API listings", False, True),
+    ("api-marketplace", "listings", "update", "Update API listings", False, True),
+    ("api-marketplace", "listings", "deprecate", "Deprecate API listings", True, True),
+    ("api-marketplace", "listings", "delete", "Remove API listings", True, True),
+    ("api-marketplace", "consumers", "read", "View API consumers", False, False),
+    ("api-marketplace", "consumers", "manage", "Manage API consumer subscriptions", False, True),
+    ("api-marketplace", "consumers", "revoke", "Revoke API consumer access", True, True),
+    ("api-marketplace", "reviews", "read", "View API reviews", False, False),
+    ("api-marketplace", "reviews", "create", "Submit API reviews", False, False),
+    ("api-marketplace", "reviews", "moderate", "Moderate API reviews", False, True),
+    ("api-marketplace", "discovery", "execute", "Use smart API discovery", False, False),
+    ("api-marketplace", "events", "read", "View marketplace event log", False, True),
+    ("api-marketplace", "admin", "full", "Full marketplace administration", True, True),
+
+    # ── Artifactory ──
+    ("artifactory", "artifacts", "read", "View artifacts and versions", False, False),
+    ("artifactory", "artifacts", "create", "Create new artifacts", False, True),
+    ("artifactory", "artifacts", "publish", "Publish artifact versions", False, True),
+    ("artifactory", "artifacts", "deprecate", "Deprecate artifacts", True, True),
+    ("artifactory", "artifacts", "delete", "Remove artifacts", True, True),
+    ("artifactory", "versions", "read", "View artifact versions", False, False),
+    ("artifactory", "versions", "yank", "Yank artifact versions", True, True),
+    ("artifactory", "downloads", "create", "Generate download tokens", False, False),
+    ("artifactory", "downloads", "manage", "Manage download policies", False, True),
+    ("artifactory", "vulnerabilities", "read", "View vulnerability reports", False, False),
+    ("artifactory", "vulnerabilities", "report", "Report vulnerabilities", False, True),
+    ("artifactory", "vulnerabilities", "resolve", "Resolve vulnerabilities", False, True),
+    ("artifactory", "quality-gates", "read", "View quality gate results", False, False),
+    ("artifactory", "quality-gates", "configure", "Configure quality gates", True, True),
+    ("artifactory", "retention", "manage", "Manage retention policies", True, True),
+    ("artifactory", "events", "read", "View artifactory event log", False, True),
+    ("artifactory", "admin", "full", "Full artifactory administration", True, True),
 ]
 
 
@@ -768,6 +803,8 @@ PLATFORM_SERVICES = [
     ("files", "Files", "Document management and file storage", "utility", "free", False),
     ("townhall", "TownHall", "Governance, board meetings, IP registry, and legal contracts", "governance", "enterprise", False),
     ("platform", "Platform Core", "Notifications, search, federation, and billing", "core", "free", False),
+    ("api-marketplace", "API Marketplace", "Discover, publish, consume, and monetize APIs across the ecosystem", "utility", "free", False),
+    ("artifactory", "Artifactory", "Artifact registry, package management, and versioned asset storage", "utility", "starter", False),
 ]
 
 
