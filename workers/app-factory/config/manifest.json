@@ -1,0 +1,91 @@
+{
+  "name": "Infinity Worker IDE",
+  "short_name": "Infinity IDE",
+  "description": "AI-Powered Code Generation Platform - Build apps with natural language",
+  "start_url": "/ide",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#1a1a2e",
+  "background_color": "#1a1a2e",
+  "icons": [
+    {
+      "src": "/static/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["developer tools", "productivity", "utilities"],
+  "lang": "en-US",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "shortcuts": [
+    {
+      "name": "New Project",
+      "short_name": "New",
+      "description": "Create a new AI-generated project",
+      "url": "/ide?action=new",
+      "icons": [{"src": "/static/icons/icon-96x96.png", "sizes": "96x96"}]
+    },
+    {
+      "name": "Templates",
+      "short_name": "Templates",
+      "description": "Browse project templates",
+      "url": "/api/templates",
+      "icons": [{"src": "/static/icons/icon-96x96.png", "sizes": "96x96"}]
+    }
+  ],
+  "screenshots": [],
+  "iarc_rating_id": "",
+  "features": [
+    "AI Code Generation",
+    "Multi-Provider Support",
+    "Live Preview",
+    "Git Integration",
+    "Mobile App Builder"
+  ]
+}

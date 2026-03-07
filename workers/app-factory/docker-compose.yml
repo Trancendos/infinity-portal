@@ -1,0 +1,262 @@
+# ============================================================================
+# INFINITY ADMIN IMPLEMENTATION RUNNER - DOCKER COMPOSE
+# ============================================================================
+# Full-stack orchestration | Development & Production Ready
+# Services: API, Redis, Metrics, (Optional: Frontend)
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # API SERVICE (Backend)
+  # ==========================================================================
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        - ENVIRONMENT=production
+    image: infinity-admin-runner-api:latest
+    container_name: infinity-api
+    restart: unless-stopped
+    
+    ports:
+      - "${API_PORT:-8000}:8000"
+    
+    environment:
+      - ENVIRONMENT=production
+      - REDIS_URL=redis://redis:6379
+    
+    env_file:
+      - ./backend/.env.production
+    
+    depends_on:
+      redis:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    networks:
+      - infinity-net
+    
+    labels:
+      - "com.infinity.service=api"
+      - "com.infinity.version=4.0.0"
+      - "com.infinity.environment=production"
+    
+    # Security
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+    tmpfs:
+      - /tmp
+
+  # ==========================================================================
+  # REDIS SERVICE (Cache & Queue)
+  # ==========================================================================
+  redis:
+    image: redis:7.2-alpine
+    container_name: infinity-redis
+    restart: unless-stopped
+    
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    
+    volumes:
+      - redis_data:/data
+      - ./deployment/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    networks:
+      - infinity-net
+    
+    labels:
+      - "com.infinity.service=redis"
+      - "com.infinity.version=7.2"
+    
+    security_opt:
+      - no-new-privileges:true
+
+  # ==========================================================================
+  # PROMETHEUS (Metrics Collection) - Optional
+  # ==========================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: infinity-prometheus
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    
+    volumes:
+      - ./deployment/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    
+    networks:
+      - infinity-net
+    
+    labels:
+      - "com.infinity.service=prometheus"
+
+  # ==========================================================================
+  # GRAFANA (Metrics Visualization) - Optional
+  # ==========================================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: infinity-grafana
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deployment/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./deployment/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    
+    depends_on:
+      - prometheus
+    
+    networks:
+      - infinity-net
+    
+    labels:
+      - "com.infinity.service=grafana"
+
+  # ==========================================================================
+  # FRONTEND (Optional - uncomment when ready)
+  # ==========================================================================
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #     args:
+  #       - NODE_ENV=production
+  #   image: infinity-admin-runner-frontend:latest
+  #   container_name: infinity-frontend
+  #   restart: unless-stopped
+  #   
+  #   ports:
+  #     - "${FRONTEND_PORT:-3000}:3000"
+  #   
+  #   environment:
+  #     - NEXT_PUBLIC_API_URL=http://api:8000
+  #     - NODE_ENV=production
+  #   
+  #   depends_on:
+  #     api:
+  #       condition: service_healthy
+  #   
+  #   networks:
+  #     - infinity-net
+
+# ============================================================================
+# VOLUMES
+# ============================================================================
+volumes:
+  redis_data:
+    driver: local
+    labels:
+      - "com.infinity.volume=redis-data"
+  
+  prometheus_data:
+    driver: local
+    labels:
+      - "com.infinity.volume=prometheus-data"
+  
+  grafana_data:
+    driver: local
+    labels:
+      - "com.infinity.volume=grafana-data"
+
+# ============================================================================
+# NETWORKS
+# ============================================================================
+networks:
+  infinity-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+    labels:
+      - "com.infinity.network=main"
+
+# ============================================================================
+# USAGE
+# ============================================================================
+# Development (API + Redis):
+#   docker-compose up -d
+#
+# Production (API + Redis):
+#   docker-compose --env-file ./backend/.env.production up -d
+#
+# With Monitoring (API + Redis + Prometheus + Grafana):
+#   docker-compose --profile monitoring up -d
+#
+# View logs:
+#   docker-compose logs -f api
+#
+# Stop all:
+#   docker-compose down
+#
+# Stop and remove volumes:
+#   docker-compose down -v
+#
+# Rebuild:
+#   docker-compose build --no-cache
+#   docker-compose up -d
+# ============================================================================

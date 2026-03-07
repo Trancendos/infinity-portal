@@ -1,0 +1,58 @@
+# Infinity Admin Implementation Runner - Backend Dependencies
+# Production-Ready | Security Audited | Version Pinned
+
+# Core Framework
+fastapi==0.109.2
+uvicorn[standard]==0.27.1
+gunicorn==21.2.0
+
+# Data Validation & Serialization
+pydantic==2.6.1
+pydantic-settings==2.1.0
+orjson==3.9.15
+
+# HTTP & Async
+aiohttp==3.9.3
+httpx==0.26.0
+requests==2.31.0
+
+# Caching & Database
+redis[hiredis]==5.0.1
+
+# AI Provider SDKs
+google-generativeai==0.3.2
+
+# Security & Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.9
+
+# Monitoring & Observability
+prometheus-client==0.19.0
+prometheus-fastapi-instrumentator==6.1.0
+
+# Rate Limiting
+slowapi==0.1.9
+
+# Retry Logic
+tenacity==8.2.3
+
+# Environment & Config
+python-dotenv==1.0.1
+
+# Utilities
+python-dateutil==2.8.2
+
+# Testing (optional for dev)
+pytest==8.0.0
+pytest-asyncio==0.23.4
+pytest-cov==4.1.0
+httpx==0.26.0
+
+# Code Quality (optional for dev)
+black==24.1.1
+ruff==0.2.1
+mypy==1.8.0
+
+# Production Server
+gevent==24.2.1

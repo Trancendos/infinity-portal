@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Infinity IDE">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="description" content="AI-Powered Code Generation Platform - Build apps with natural language">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.svg">
+    <link rel="icon" type="image/svg+xml" href="/static/icons/icon-72x72.svg">
+    <title>Infinity IDE v5.1</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: #111827; 
+            color: white; 
+            height: 100vh; 
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            height: 48px;
+            background: #1f2937;
+            border-bottom: 1px solid #374151;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+        .logo { display: flex; align-items: center; gap: 8px; }
+        .logo-icon { font-size: 24px; }
+        .logo-text { font-weight: bold; }
+        .logo-version { font-size: 12px; color: #6b7280; }
+        .spacer { flex: 1; }
+        .btn {
+            padding: 6px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: white;
+        }
+        .btn-purple { background: #7c3aed; }
+        .btn-purple:hover { background: #6d28d9; }
+        .btn-green { background: #059669; }
+        .btn-green:hover { background: #047857; }
+        .btn-blue { background: #2563eb; }
+        .btn-blue:hover { background: #1d4ed8; }
+        .btn-gray { background: #374151; }
+        .btn-gray:hover { background: #4b5563; }
+        
+        .main {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        .sidebar {
+            width: 240px;
+            background: #111827;
+            border-right: 1px solid #374151;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+        .sidebar-header {
+            padding: 12px;
+            border-bottom: 1px solid #374151;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .sidebar-title { font-size: 14px; font-weight: 600; }
+        .sidebar-btn { 
+            background: none; 
+            border: none; 
+            color: #9ca3af; 
+            font-size: 18px; 
+            cursor: pointer; 
+        }
+        .sidebar-btn:hover { color: white; }
+        .file-tree { flex: 1; overflow-y: auto; padding: 8px; }
+        .file-item {
+            padding: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+        .file-item:hover { background: #1f2937; }
+        .file-item.active { background: #1f2937; }
+        
+        .editor-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .tabs {
+            height: 40px;
+            background: #1f2937;
+            border-bottom: 1px solid #374151;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            flex-shrink: 0;
+        }
+        .tab {
+            padding: 8px 16px;
+            background: #111827;
+            border-radius: 4px 4px 0 0;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .editor-container {
+            flex: 1;
+            position: relative;
+            background: #1e1e1e;
+        }
+        #editor {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border: none;
+            resize: none;
+            outline: none;
+            padding: 16px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            tab-size: 2;
+        }
+        
+        .right-panel {
+            width: 360px;
+            background: #111827;
+            border-left: 1px solid #374151;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+        .panel-tabs {
+            padding: 12px;
+            border-bottom: 1px solid #374151;
+            display: flex;
+            gap: 8px;
+        }
+        .panel-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .ai-chat {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+        .chat-msg {
+            background: #1f2937;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        .chat-msg.user { background: rgba(37, 99, 235, 0.2); margin-left: 16px; }
+        .chat-input-area {
+            padding: 12px;
+            border-top: 1px solid #374151;
+        }
+        .chat-input-row { display: flex; gap: 8px; }
+        .chat-input {
+            flex: 1;
+            background: #1f2937;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            outline: none;
+        }
+        .chat-input:focus { box-shadow: 0 0 0 2px #7c3aed; }
+        .preview-frame {
+            width: 100%;
+            height: 100%;
+            background: white;
+            border: none;
+        }
+        .hidden { display: none !important; }
+        
+        .terminal {
+            height: 160px;
+            background: #000;
+            border-top: 1px solid #374151;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+        .terminal-header {
+            padding: 8px;
+            border-bottom: 1px solid #374151;
+            background: #111827;
+            color: #9ca3af;
+        }
+        .terminal-output {
+            padding: 8px;
+            color: #4ade80;
+            overflow-y: auto;
+            height: 120px;
+        }
+        
+        .status-bar {
+            height: 24px;
+            background: #2563eb;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .right-panel { width: 100%; position: absolute; right: -100%; transition: right 0.3s; z-index: 100; height: calc(100% - 72px); top: 48px; }
+            .right-panel.show { right: 0; }
+            .mobile-toggle { display: block !important; }
+        }
+        .mobile-toggle { display: none; }
+        
+        /* Syntax highlighting simulation */
+        .keyword { color: #c586c0; }
+        .string { color: #ce9178; }
+        .comment { color: #6a9955; }
+        .function { color: #dcdcaa; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <span class="logo-icon">🚀</span>
+            <span class="logo-text">Infinity IDE</span>
+            <span class="logo-version">v5.1</span>
+        </div>
+        <div class="spacer"></div>
+        <button class="btn btn-gray mobile-toggle" onclick="togglePanel()">☰</button>
+        <button class="btn btn-purple" onclick="generateCode()">🤖 AI Generate</button>
+        <button class="btn btn-green" onclick="runPreview()">▶️ Preview</button>
+        <button class="btn btn-blue" onclick="deployProject()">🚀 Deploy</button>
+        <button class="btn btn-gray" onclick="buildMobileApp()">📱 Mobile</button>
+    </header>
+    
+    <div class="main">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <span class="sidebar-title">📂 Explorer</span>
+                <button class="sidebar-btn" onclick="newFile()">+</button>
+            </div>
+            <div class="file-tree" id="file-tree">
+                <div class="file-item active" onclick="openFile('App.tsx', this)">📄 App.tsx</div>
+                <div class="file-item" onclick="openFile('index.css', this)">🎨 index.css</div>
+                <div class="file-item" onclick="openFile('package.json', this)">📋 package.json</div>
+            </div>
+        </aside>
+        
+        <main class="editor-area">
+            <div class="tabs">
+                <div class="tab" id="active-tab">App.tsx</div>
+            </div>
+            <div class="editor-container">
+                <textarea id="editor" spellcheck="false"></textarea>
+            </div>
+        </main>
+        
+        <aside class="right-panel" id="right-panel">
+            <div class="panel-tabs">
+                <button id="btn-ai" class="btn btn-purple" onclick="showPanel('ai')">🤖 AI</button>
+                <button id="btn-preview" class="btn btn-gray" onclick="showPanel('preview')">👁️ Preview</button>
+            </div>
+            <div class="panel-content">
+                <div id="ai-panel">
+                    <div class="ai-chat" id="ai-chat">
+                        <div class="chat-msg">
+                            👋 Hello! I'm your AI coding assistant. I can help you:
+                            
+• Generate React/Vue/HTML components
+• Create API endpoints
+• Write CSS styles
+• Debug code
+• Explain concepts
+
+What would you like to build?
+                        </div>
+                    </div>
+                    <div class="chat-input-area">
+                        <div class="chat-input-row">
+                            <input type="text" class="chat-input" id="ai-input" 
+                                placeholder="Describe what you want to build..."
+                                onkeypress="if(event.key==='Enter')generateCode()">
+                            <button class="btn btn-purple" onclick="generateCode()">Send</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="preview-panel" class="hidden" style="flex:1; display:flex; flex-direction:column;">
+                    <iframe id="preview-frame" class="preview-frame" sandbox="allow-scripts" style="flex:1;"></iframe>
+                </div>
+            </div>
+        </aside>
+    </div>
+    
+    <div class="terminal">
+        <div class="terminal-header">⬛ Terminal</div>
+        <div class="terminal-output" id="terminal-output">
+            <div>Welcome to Infinity IDE v5.0</div>
+            <div>Ready for AI-powered development</div>
+        </div>
+    </div>
+    
+    <footer class="status-bar">
+        <span>🚀 Infinity IDE v5.0</span>
+        <span style="margin: 0 16px;">|</span>
+        <span id="status-lang">TypeScript</span>
+        <div class="spacer"></div>
+        <span id="status-text">✓ Ready</span>
+    </footer>
+    
+    <script>
+        const files = {
+            'App.tsx': `import { useState } from 'react'
+
+function App() {
+  const [count, setCount] = useState(0)
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-5xl font-bold text-white mb-8">
+          🚀 Infinity IDE
+        </h1>
+        <p className="text-gray-400 mb-8">
+          AI-Powered Code Generation Platform
+        </p>
+        <button
+          onClick={() => setCount(c => c + 1)}
+          className="px-8 py-4 bg-gradient-to-r from-pink-500 to-purple-500 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
+        >
+          Count: {count}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export default App`,
+            'index.css': `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  padding: 0;
+}`,
+            'package.json': JSON.stringify({
+                name: 'infinity-ide-project',
+                version: '1.0.0',
+                dependencies: {
+                    react: '^18.2.0',
+                    'react-dom': '^18.2.0'
+                }
+            }, null, 2)
+        };
+        
+        let currentFile = 'App.tsx';
+        const editor = document.getElementById('editor');
+        
+        // Initialize editor
+        editor.value = files[currentFile];
+        editor.addEventListener('input', () => {
+            files[currentFile] = editor.value;
+        });
+        
+        // Tab key support
+        editor.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = editor.selectionStart;
+                const end = editor.selectionEnd;
+                editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
+                editor.selectionStart = editor.selectionEnd = start + 2;
+                files[currentFile] = editor.value;
+            }
+        });
+        
+        log('✓ Editor initialized');
+        
+        function openFile(name, element) {
+            files[currentFile] = editor.value;
+            currentFile = name;
+            editor.value = files[name] || '';
+            document.getElementById('active-tab').textContent = name;
+            
+            const lang = name.endsWith('.tsx') || name.endsWith('.ts') ? 'TypeScript' : 
+                         name.endsWith('.css') ? 'CSS' : 
+                         name.endsWith('.json') ? 'JSON' : 'Plain Text';
+            document.getElementById('status-lang').textContent = lang;
+            
+            document.querySelectorAll('.file-item').forEach(el => el.classList.remove('active'));
+            if (element) element.classList.add('active');
+        }
+        
+        function showPanel(panel) {
+            document.getElementById('ai-panel').classList.toggle('hidden', panel !== 'ai');
+            document.getElementById('preview-panel').classList.toggle('hidden', panel !== 'preview');
+            document.getElementById('preview-panel').style.display = panel === 'preview' ? 'flex' : 'none';
+            document.getElementById('btn-ai').className = 'btn ' + (panel === 'ai' ? 'btn-purple' : 'btn-gray');
+            document.getElementById('btn-preview').className = 'btn ' + (panel === 'preview' ? 'btn-green' : 'btn-gray');
+        }
+        
+        function togglePanel() {
+            document.getElementById('right-panel').classList.toggle('show');
+        }
+        
+        function log(msg) {
+            const output = document.getElementById('terminal-output');
+            const div = document.createElement('div');
+            div.textContent = msg;
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        async function generateCode() {
+            const input = document.getElementById('ai-input');
+            const prompt = input.value.trim();
+            if (!prompt) return;
+            
+            const chat = document.getElementById('ai-chat');
+            const userMsg = document.createElement('div');
+            userMsg.className = 'chat-msg user';
+            userMsg.textContent = prompt;
+            chat.appendChild(userMsg);
+            input.value = '';
+            
+            document.getElementById('status-text').textContent = '⏳ Generating...';
+            log('> AI: ' + prompt);
+            
+            try {
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description: prompt, project_type: 'react_app' })
+                });
+                
+                const data = await response.json();
+                const aiMsg = document.createElement('div');
+                aiMsg.className = 'chat-msg';
+                
+                if (data.success && data.files) {
+                    Object.assign(files, data.files);
+                    log('✓ Generated ' + data.total_files + ' files');
+                    aiMsg.textContent = '✅ Generated ' + data.total_files + ' files!\n\nFiles created:\n' + Object.keys(data.files).map(f => '• ' + f).join('\n');
+                    updateFileTree();
+                    if (data.files['App.tsx']) {
+                        openFile('App.tsx', null);
+                    }
+                } else if (data.code) {
+                    files[currentFile] = data.code;
+                    editor.value = data.code;
+                    log('✓ Code generated');
+                    aiMsg.textContent = '✅ Code generated! Check the editor.';
+                } else {
+                    aiMsg.textContent = '⚠️ ' + (data.error || 'Generation failed');
+                }
+                chat.appendChild(aiMsg);
+            } catch (e) {
+                log('⚠ Error: ' + e.message);
+                const aiMsg = document.createElement('div');
+                aiMsg.className = 'chat-msg';
+                aiMsg.textContent = '⚠️ API error. Please check your connection.';
+                chat.appendChild(aiMsg);
+            }
+            
+            document.getElementById('status-text').textContent = '✓ Ready';
+            chat.scrollTop = chat.scrollHeight;
+        }
+        
+        function updateFileTree() {
+            const tree = document.getElementById('file-tree');
+            tree.innerHTML = '';
+            Object.keys(files).forEach(name => {
+                const div = document.createElement('div');
+                div.className = 'file-item' + (name === currentFile ? ' active' : '');
+                const icon = name.endsWith('.tsx') || name.endsWith('.ts') ? '📄' :
+                            name.endsWith('.css') ? '🎨' :
+                            name.endsWith('.json') ? '📋' :
+                            name.endsWith('.html') ? '🌐' : '📄';
+                div.textContent = icon + ' ' + name;
+                div.onclick = function() { openFile(name, this); };
+                tree.appendChild(div);
+            });
+        }
+        
+        async function runPreview() {
+            showPanel('preview');
+            log('> Building preview...');
+            
+            try {
+                const response = await fetch('/api/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ project_id: 'preview', files: files, framework: 'react' })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.html) {
+                    document.getElementById('preview-frame').srcdoc = data.html;
+                    log('✓ Preview ready (' + data.build_time_ms.toFixed(0) + 'ms)');
+                    return;
+                }
+            } catch (e) {
+                log('> Using local preview');
+            }
+            
+            const html = generateLocalPreview();
+            document.getElementById('preview-frame').srcdoc = html;
+            log('✓ Preview ready');
+        }
+        
+        function generateLocalPreview() {
+            const appCode = files['App.tsx'] || files['App.jsx'] || '';
+            const css = files['index.css'] || '';
+            return `<!DOCTYPE html>
+<html><head>
+<script src="https://unpkg.com/react@18/umd/react.development.js"><\/script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
+<script src="https://cdn.tailwindcss.com"><\/script>
+<style>${css.replace(/@tailwind\s+\w+;/g, '')}</style>
+</head><body>
+<div id="root"></div>
+<script type="text/babel">
+${appCode.replace(/import.*from.*\n/g, '').replace(/export default /, '')}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+<\/script></body></html>`;
+        }
+        
+        async function deployProject() {
+            log('> Starting deployment...');
+            document.getElementById('status-text').textContent = '🚀 Deploying...';
+            
+            try {
+                const response = await fetch('/api/deploy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ platform: 'render', project_name: 'my-app', files: files })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    log('✓ Deployment initiated');
+                    log('  URL: ' + (data.url || 'pending...'));
+                } else {
+                    log('⚠ ' + (data.error || 'Deployment failed'));
+                }
+            } catch (e) {
+                log('⚠ Deployment error: ' + e.message);
+            }
+            
+            document.getElementById('status-text').textContent = '✓ Ready';
+        }
+        
+        function newFile() {
+            const name = prompt('Enter file name (e.g., Component.tsx):');
+            if (name && !files[name]) {
+                files[name] = '';
+                updateFileTree();
+                openFile(name, null);
+                log('✓ Created: ' + name);
+            }
+        }
+        
+        // PWA Install Prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            // Show install button in header
+            const installBtn = document.createElement('button');
+            installBtn.className = 'btn btn-gray';
+            installBtn.innerHTML = '📲 Install';
+            installBtn.onclick = installApp;
+            document.querySelector('.header .spacer').after(installBtn);
+        });
+        
+        async function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                log(outcome === 'accepted' ? '✓ App installed!' : 'Install cancelled');
+                deferredPrompt = null;
+            }
+        }
+        
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js')
+                    .then((registration) => {
+                        console.log('SW registered:', registration.scope);
+                        
+                        // Check for updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    log('⚡ New version available! Refresh to update.');
+                                }
+                            });
+                        });
+                    })
+                    .catch((error) => {
+                        console.error('SW registration failed:', error);
+                    });
+            });
+        }
+        
+        // Mobile APK Builder
+        async function buildMobileApp() {
+            const platform = prompt('Build for platform (android/pwa):', 'android');
+            if (!platform) return;
+            
+            log('📱 Building ' + platform.toUpperCase() + ' app...');
+            document.getElementById('status-text').textContent = '📱 Building...';
+            
+            try {
+                const webUrl = window.location.origin;
+                const response = await fetch('/api/mobile/build/' + platform, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        app_name: 'My App',
+                        package_name: 'com.infinity.myapp',
+                        web_url: webUrl,
+                        files: files
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    log('✓ Build complete! ID: ' + data.build_id);
+                    log('  Download: ' + data.download_url);
+                    if (data.download_url) {
+                        window.open(data.download_url, '_blank');
+                    }
+                } else {
+                    log('⚠ Build failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (e) {
+                log('⚠ Build error: ' + e.message);
+            }
+            
+            document.getElementById('status-text').textContent = '✓ Ready';
+        }
+    </script>
+</body>
+</html>

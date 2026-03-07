@@ -1,0 +1,120 @@
+# ============================================================================
+# INFINITY ADMIN IMPLEMENTATION RUNNER - RENDER.COM BLUEPRINT
+# ============================================================================
+# Zero-Cost Deployment Configuration
+# Deploy with: https://render.com/deploy
+# ============================================================================
+
+services:
+  # ==========================================================================
+  # API SERVICE (Backend)
+  # ==========================================================================
+  - type: web
+    name: infinity-admin-runner
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    
+    # Free tier instance
+    plan: free
+    
+    # Region (choose closest to your users)
+    region: oregon
+    
+    # Health check
+    healthCheckPath: /health
+    
+    # Environment variables
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: 8000
+      - key: WORKERS
+        value: 2
+      
+      # Feature flags
+      - key: SCOUT_ENABLED
+        value: true
+      - key: COGNITIVE_EXERCISES_ENABLED
+        value: true
+      - key: STREAMING_ENABLED
+        value: true
+      - key: WEBSOCKET_ENABLED
+        value: false
+      - key: METRICS_ENABLED
+        value: true
+      - key: CACHING_ENABLED
+        value: true
+      
+      # Compliance & Governance
+      - key: GDPR_ENABLED
+        value: true
+      - key: ISO27001_ENABLED
+        value: true
+      - key: SOC2_ENABLED
+        value: true
+      - key: AUDIT_LOGGING
+        value: true
+      - key: DATA_RETENTION_DAYS
+        value: 30
+      
+      # AI Model Configuration
+      - key: FREE_TIER_PRIORITY
+        value: true
+      - key: MODEL_FALLBACK_ENABLED
+        value: true
+      
+      # Rate Limiting (optimized for free tier)
+      - key: RATE_LIMIT
+        value: 60
+      - key: RATE_LIMIT_HOUR
+        value: 500
+      - key: MAX_TOKENS
+        value: 4096
+      
+      # Logging
+      - key: LOG_LEVEL
+        value: INFO
+      - key: STRUCTURED_LOGGING
+        value: true
+      
+      # API Keys (sync from Render Dashboard)
+      - key: HF_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: API_TOKEN
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      
+      # Redis (optional - use Upstash free tier)
+      - key: REDIS_URL
+        sync: false
+
+# ============================================================================
+# DEPLOYMENT NOTES
+# ============================================================================
+# 1. Fork this repository to your GitHub account
+# 2. Go to https://render.com/deploy
+# 3. Connect your GitHub repository
+# 4. Add your API keys in the Render Dashboard:
+#    - HF_TOKEN (HuggingFace)
+#    - GROQ_API_KEY (Groq)
+#    - GOOGLE_API_KEY (Google Gemini)
+#    - DEEPSEEK_API_KEY (DeepSeek)
+#    - API_TOKEN (generate with: openssl rand -base64 32)
+# 5. Deploy!
+#
+# Free Tier Limitations:
+# - Service spins down after 15 minutes of inactivity
+# - 750 free instance hours per month
+# - No persistent storage
+#
+# For production use, consider upgrading to a paid instance.
+# ============================================================================
