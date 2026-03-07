@@ -17,7 +17,7 @@
     "@infinity-os/types": "workspace:*",
     "@infinity-os/ui": "workspace:*",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react-dom": "^19.2.4",
     "react-router-dom": "^6.21.0",
     "zustand": "^4.4.7",
     "react-hook-form": "^7.49.0",
