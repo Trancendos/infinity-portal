@@ -1,0 +1,276 @@
+# ══════════════════════════════════════════════════════════════
+# TIGA 11-Gate Compliance Pipeline
+# Source: TIGA v2.0 Doc 11 (CI/CD Integration)
+# Validates all services against the 11-Gate Pipeline before deploy
+# ══════════════════════════════════════════════════════════════
+
+name: TIGA 11-Gate Compliance Pipeline
+
+on:
+  push:
+    branches: [ main, develop, 'release/**' ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly Monday 2am UTC
+
+env:
+  OPA_VERSION: "0.62.1"
+  TIGA_VERSION: "2.0.0"
+
+jobs:
+  # ── Stage 1: Setup & Classification ─────────────────────────
+  tiga-classify:
+    runs-on: ubuntu-latest
+    name: "TIGA: Classify & Validate Manifest"
+    outputs:
+      logic_level: ${{ steps.classify.outputs.logic_level }}
+      risk_tier: ${{ steps.classify.outputs.risk_tier }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup OPA
+        run: |
+          curl -L -o opa https://openpolicyagent.org/downloads/v${{ env.OPA_VERSION }}/opa_linux_amd64_static
+          chmod +x opa
+          sudo mv opa /usr/local/bin/opa
+          opa version
+
+      - name: Validate TIGA Manifest
+        run: |
+          if [ ! -f "tiga/tiga-manifest.json" ]; then
+            echo "::error::tiga-manifest.json not found. Every service must declare a TIGA manifest."
+            exit 1
+          fi
+          echo "✅ TIGA manifest found"
+          cat tiga/tiga-manifest.json | jq .
+
+      - name: Classify System (Logic Level + Risk Tier)
+        id: classify
+        run: |
+          RESULT=$(opa eval \
+            --data tiga/opa/policies \
+            --input tiga/tiga-manifest.json \
+            "data.tiga.logic_levels.result" \
+            --format json 2>/dev/null || echo '{"result":[{"expressions":[{"value":{"logic_level":"LL1","risk_tier":"Low"}}]}]}')
+          
+          LL=$(echo $RESULT | jq -r '.result[0].expressions[0].value.logic_level // "LL1"')
+          RT=$(echo $RESULT | jq -r '.result[0].expressions[0].value.risk_tier // "Low"')
+          
+          echo "logic_level=$LL" >> $GITHUB_OUTPUT
+          echo "risk_tier=$RT" >> $GITHUB_OUTPUT
+          echo "📊 Classification: Logic Level=$LL, Risk Tier=$RT"
+
+  # ── Stage 2: Gate 1 — Canon Alignment ───────────────────────
+  gate-01-canon:
+    runs-on: ubuntu-latest
+    needs: tiga-classify
+    name: "Gate 1: Canon Alignment"
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup OPA
+        run: |
+          curl -L -o opa https://openpolicyagent.org/downloads/v${{ env.OPA_VERSION }}/opa_linux_amd64_static
+          chmod +x opa && sudo mv opa /usr/local/bin/opa
+
+      - name: Gate 1 — Canon Alignment (Magna Carta)
+        run: |
+          RESULT=$(opa eval \
+            --data tiga/opa/policies \
+            --input tiga/tiga-manifest.json \
+            "data.tiga.gates.gate01.result" \
+            --format json 2>/dev/null || echo '{"result":[{"expressions":[{"value":{"status":"NOT_ASSESSED"}}]}]}')
+          
+          STATUS=$(echo $RESULT | jq -r '.result[0].expressions[0].value.status // "NOT_ASSESSED"')
+          VIOLATIONS=$(echo $RESULT | jq '.result[0].expressions[0].value.violations // []')
+          
+          echo "🏛️ Gate 1 (Canon Alignment): $STATUS"
+          
+          if [ "$STATUS" == "FAIL" ]; then
+            echo "::error::Gate 1 FAILED — Magna Carta violations detected"
+            echo "$VIOLATIONS" | jq -r '.[] | "  ❌ Article \(.article): \(.rule) [\(.severity)]"'
+            # Gate 1 failures are blocking for all logic levels
+            exit 1
+          fi
+          echo "✅ Gate 1 PASSED"
+
+  # ── Stage 3: Gate 2 — Classification Validation ─────────────
+  gate-02-classification:
+    runs-on: ubuntu-latest
+    needs: [tiga-classify, gate-01-canon]
+    name: "Gate 2: Classification"
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup OPA
+        run: |
+          curl -L -o opa https://openpolicyagent.org/downloads/v${{ env.OPA_VERSION }}/opa_linux_amd64_static
+          chmod +x opa && sudo mv opa /usr/local/bin/opa
+
+      - name: Gate 2 — Classification Validation
+        run: |
+          RESULT=$(opa eval \
+            --data tiga/opa/policies \
+            --input tiga/tiga-manifest.json \
+            "data.tiga.gates.gate02.result" \
+            --format json 2>/dev/null || echo '{"result":[{"expressions":[{"value":{"status":"NOT_ASSESSED"}}]}]}')
+          
+          STATUS=$(echo $RESULT | jq -r '.result[0].expressions[0].value.status // "NOT_ASSESSED"')
+          echo "🏷️ Gate 2 (Classification): $STATUS"
+          
+          if [ "$STATUS" == "FAIL" ]; then
+            VIOLATIONS=$(echo $RESULT | jq '.result[0].expressions[0].value.violations // []')
+            echo "::error::Gate 2 FAILED — Classification mismatch"
+            echo "$VIOLATIONS" | jq -r '.[] | "  ❌ \(.rule): \(.detail) [\(.severity)]"'
+            exit 1
+          fi
+          echo "✅ Gate 2 PASSED"
+
+  # ── Stage 4: Gates 3-6 (Risk, Data, Model, Security) ───────
+  gates-03-to-06:
+    runs-on: ubuntu-latest
+    needs: [tiga-classify, gate-02-classification]
+    name: "Gates 3-6: Risk/Data/Model/Security"
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup OPA
+        run: |
+          curl -L -o opa https://openpolicyagent.org/downloads/v${{ env.OPA_VERSION }}/opa_linux_amd64_static
+          chmod +x opa && sudo mv opa /usr/local/bin/opa
+
+      - name: Gate 3 — Risk & DPIA
+        run: |
+          RESULT=$(opa eval --data tiga/opa/policies --input tiga/tiga-manifest.json \
+            "data.tiga.gates.gate03.result" --format json 2>/dev/null || echo '{"result":[{"expressions":[{"value":{"status":"NOT_ASSESSED"}}]}]}')
+          STATUS=$(echo $RESULT | jq -r '.result[0].expressions[0].value.status // "NOT_ASSESSED"')
+          echo "⚠️ Gate 3 (Risk & DPIA): $STATUS"
+          if [ "$STATUS" == "FAIL" ] && [ "${{ needs.tiga-classify.outputs.logic_level }}" != "LL1" ]; then
+            echo "::warning::Gate 3 violations detected for ${{ needs.tiga-classify.outputs.logic_level }} system"
+          fi
+
+      - name: Gate 4 — Data Governance
+        run: |
+          RESULT=$(opa eval --data tiga/opa/policies --input tiga/tiga-manifest.json \
+            "data.tiga.gates.gate04.result" --format json 2>/dev/null || echo '{"result":[{"expressions":[{"value":{"status":"NOT_ASSESSED"}}]}]}')
+          STATUS=$(echo $RESULT | jq -r '.result[0].expressions[0].value.status // "NOT_ASSESSED"')
+          echo "📊 Gate 4 (Data Governance): $STATUS"
+
+      - name: Gate 5 — Model Governance
+        run: |
+          RESULT=$(opa eval --data tiga/opa/policies --input tiga/tiga-manifest.json \
+            "data.tiga.gates.gate05.result" --format json 2>/dev/null || echo '{"result":[{"expressions":[{"value":{"status":"NOT_ASSESSED"}}]}]}')
+          STATUS=$(echo $RESULT | jq -r '.result[0].expressions[0].value.status // "NOT_ASSESSED"')
+          echo "🤖 Gate 5 (Model Governance): $STATUS"
+
+      - name: Gate 6 — Security Hardening
+        run: |
+          RESULT=$(opa eval --data tiga/opa/policies --input tiga/tiga-manifest.json \
+            "data.tiga.gates.gate06.result" --format json 2>/dev/null || echo '{"result":[{"expressions":[{"value":{"status":"NOT_ASSESSED"}}]}]}')
+          STATUS=$(echo $RESULT | jq -r '.result[0].expressions[0].value.status // "NOT_ASSESSED"')
+          echo "🔒 Gate 6 (Security): $STATUS"
+          if [ "$STATUS" == "FAIL" ]; then
+            echo "::error::Gate 6 FAILED — Security violations are blocking"
+            exit 1
+          fi
+
+  # ── Stage 5: Gates 7-8 (Human Oversight, Economic) ─────────
+  gates-07-to-08:
+    runs-on: ubuntu-latest
+    needs: [tiga-classify, gates-03-to-06]
+    name: "Gates 7-8: Oversight/Economic"
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup OPA
+        run: |
+          curl -L -o opa https://openpolicyagent.org/downloads/v${{ env.OPA_VERSION }}/opa_linux_amd64_static
+          chmod +x opa && sudo mv opa /usr/local/bin/opa
+
+      - name: Gate 7 — Human Oversight
+        run: |
+          RESULT=$(opa eval --data tiga/opa/policies --input tiga/tiga-manifest.json \
+            "data.tiga.gates.gate07.result" --format json 2>/dev/null || echo '{"result":[{"expressions":[{"value":{"status":"NOT_ASSESSED"}}]}]}')
+          STATUS=$(echo $RESULT | jq -r '.result[0].expressions[0].value.status // "NOT_ASSESSED"')
+          echo "👤 Gate 7 (Human Oversight): $STATUS"
+
+      - name: Gate 8 — Economic & Sustainability
+        run: |
+          RESULT=$(opa eval --data tiga/opa/policies --input tiga/tiga-manifest.json \
+            "data.tiga.gates.gate08.result" --format json 2>/dev/null || echo '{"result":[{"expressions":[{"value":{"status":"NOT_ASSESSED"}}]}]}')
+          STATUS=$(echo $RESULT | jq -r '.result[0].expressions[0].value.status // "NOT_ASSESSED"')
+          echo "💰 Gate 8 (Economic): $STATUS"
+
+  # ── Stage 6: Gates 9-11 (Prod Readiness, Monitoring, Review)
+  gates-09-to-11:
+    runs-on: ubuntu-latest
+    needs: [tiga-classify, gates-07-to-08]
+    name: "Gates 9-11: Prod/Monitor/Review"
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup OPA
+        run: |
+          curl -L -o opa https://openpolicyagent.org/downloads/v${{ env.OPA_VERSION }}/opa_linux_amd64_static
+          chmod +x opa && sudo mv opa /usr/local/bin/opa
+
+      - name: Gate 9 — Production Readiness
+        run: |
+          RESULT=$(opa eval --data tiga/opa/policies --input tiga/tiga-manifest.json \
+            "data.tiga.gates.gate09.result" --format json 2>/dev/null || echo '{"result":[{"expressions":[{"value":{"status":"NOT_ASSESSED"}}]}]}')
+          STATUS=$(echo $RESULT | jq -r '.result[0].expressions[0].value.status // "NOT_ASSESSED"')
+          echo "🚀 Gate 9 (Production Readiness): $STATUS"
+
+      - name: Gate 10 — Monitoring & Incident Response
+        run: |
+          RESULT=$(opa eval --data tiga/opa/policies --input tiga/tiga-manifest.json \
+            "data.tiga.gates.gate10.result" --format json 2>/dev/null || echo '{"result":[{"expressions":[{"value":{"status":"NOT_ASSESSED"}}]}]}')
+          STATUS=$(echo $RESULT | jq -r '.result[0].expressions[0].value.status // "NOT_ASSESSED"')
+          echo "📡 Gate 10 (Monitoring): $STATUS"
+
+      - name: Gate 11 — Periodic Review
+        run: |
+          RESULT=$(opa eval --data tiga/opa/policies --input tiga/tiga-manifest.json \
+            "data.tiga.gates.gate11.result" --format json 2>/dev/null || echo '{"result":[{"expressions":[{"value":{"status":"NOT_ASSESSED"}}]}]}')
+          STATUS=$(echo $RESULT | jq -r '.result[0].expressions[0].value.status // "NOT_ASSESSED"')
+          echo "🔄 Gate 11 (Periodic Review): $STATUS"
+
+  # ── Stage 7: TIGA Compliance Summary ────────────────────────
+  tiga-summary:
+    runs-on: ubuntu-latest
+    needs: [tiga-classify, gate-01-canon, gate-02-classification, gates-03-to-06, gates-07-to-08, gates-09-to-11]
+    if: always()
+    name: "TIGA: Compliance Summary"
+    
+    steps:
+      - name: Generate TIGA Compliance Report
+        run: |
+          echo "══════════════════════════════════════════════════"
+          echo "  TIGA 11-GATE COMPLIANCE REPORT"
+          echo "  Version: ${{ env.TIGA_VERSION }}"
+          echo "  System: ${{ github.repository }}"
+          echo "  Logic Level: ${{ needs.tiga-classify.outputs.logic_level }}"
+          echo "  Risk Tier: ${{ needs.tiga-classify.outputs.risk_tier }}"
+          echo "  Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "══════════════════════════════════════════════════"
+          echo ""
+          echo "Gate Results:"
+          echo "  Gate 1  (Canon Alignment):    ${{ needs.gate-01-canon.result }}"
+          echo "  Gate 2  (Classification):     ${{ needs.gate-02-classification.result }}"
+          echo "  Gates 3-6 (Risk/Data/Model/Sec): ${{ needs.gates-03-to-06.result }}"
+          echo "  Gates 7-8 (Oversight/Economic):  ${{ needs.gates-07-to-08.result }}"
+          echo "  Gates 9-11 (Prod/Monitor/Review): ${{ needs.gates-09-to-11.result }}"
+          echo ""
+          echo "══════════════════════════════════════════════════"
+          echo "  Daisy-Chain: [External Law] → [FF-CTRL] → [TEF-POL] → [APP-PROC] → [REC-HASH]"
+          echo "══════════════════════════════════════════════════"

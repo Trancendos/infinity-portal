@@ -1,0 +1,218 @@
+# ══════════════════════════════════════════════════════════════
+# TRANCENDOS AI MAGNA CARTA — Machine-Readable Governance Config
+# Version: 1.0.0 | Authority: Canon 00 | Classification: PUBLIC
+# ══════════════════════════════════════════════════════════════
+# This file codifies the 9 Articles of the AI Magna Carta as
+# enforceable, machine-queryable policy for guardian-ai and
+# all ecosystem services.
+# ══════════════════════════════════════════════════════════════
+
+version: "1.0.0"
+document_id: "CANON-00-MAGNA-CARTA"
+authority: "Trancendos Governance Council"
+ratified: "2026-02-01"
+classification: "PUBLIC"
+supremacy: "This document is the supreme governance artefact. All other policies, procedures, and configurations must align with these articles."
+
+articles:
+  I:
+    title: "Human Primacy"
+    principle: "AI systems exist to augment human capability, never to diminish human agency or dignity."
+    enforcement:
+      - rule: "All AI outputs must be reviewable by humans"
+        check: "human_review_available == true"
+        severity: "CRITICAL"
+      - rule: "No AI system may make irreversible decisions without human approval"
+        check: "irreversible_action_requires_approval == true"
+        severity: "CRITICAL"
+      - rule: "Human override must be available at all times"
+        check: "kill_switch_enabled == true"
+        severity: "CRITICAL"
+    applies_to: "ALL_SERVICES"
+    logic_levels: ["LL1", "LL2", "LL3", "LL4", "LL5"]
+
+  II:
+    title: "Transparency and Traceability"
+    principle: "All significant AI actions, decisions, and rationale must be logged in tamper-evident form and be explainable."
+    enforcement:
+      - rule: "All AI decisions must be logged with rationale"
+        check: "decision_logging_enabled == true"
+        severity: "CRITICAL"
+      - rule: "AI must identify itself as AI in human interactions"
+        check: "ai_identification_enabled == true"
+        severity: "HIGH"
+      - rule: "Daisy-chain traceability must be maintained"
+        check: "daisy_chain_valid == true"
+        severity: "CRITICAL"
+      - rule: "Confidence levels must be provided for recommendations"
+        check: "confidence_reporting_enabled == true"
+        severity: "MEDIUM"
+    applies_to: "ALL_SERVICES"
+    logic_levels: ["LL1", "LL2", "LL3", "LL4", "LL5"]
+
+  III:
+    title: "Safety and Self-Healing"
+    principle: "AI systems must be safe by design, with robust fail-safe mechanisms, self-healing capabilities, and clear human override."
+    enforcement:
+      - rule: "Health checks (liveness + readiness) must be implemented"
+        check: "health_checks_enabled == true"
+        severity: "CRITICAL"
+      - rule: "Circuit breakers must be configured"
+        check: "circuit_breaker_enabled == true"
+        severity: "HIGH"
+      - rule: "Automatic rollback must be available"
+        check: "rollback_capability == true"
+        severity: "HIGH"
+      - rule: "Self-healing mechanisms must be active"
+        check: "self_healing_enabled == true"
+        severity: "HIGH"
+      - rule: "Incident response runbook must exist"
+        check: "incident_runbook_exists == true"
+        severity: "MEDIUM"
+    applies_to: "ALL_SERVICES"
+    logic_levels: ["LL1", "LL2", "LL3", "LL4", "LL5"]
+
+  IV:
+    title: "Privacy and Data Stewardship"
+    principle: "User data is held in trust, not owned. Collection is minimised, consent is explicit, and deletion is guaranteed."
+    enforcement:
+      - rule: "Data collection must have explicit consent"
+        check: "consent_mechanism_enabled == true"
+        severity: "CRITICAL"
+      - rule: "Data minimisation must be practiced"
+        check: "data_minimisation_policy == true"
+        severity: "HIGH"
+      - rule: "Data retention policies must be defined"
+        check: "retention_policy_defined == true"
+        severity: "HIGH"
+      - rule: "Crypto-shredding must be available for deletion"
+        check: "crypto_shredding_capable == true"
+        severity: "HIGH"
+      - rule: "Data must be encrypted at rest and in transit"
+        check: "encryption_at_rest == true AND encryption_in_transit == true"
+        severity: "CRITICAL"
+    applies_to: "ALL_SERVICES"
+    logic_levels: ["LL1", "LL2", "LL3", "LL4", "LL5"]
+
+  V:
+    title: "Autonomy Boundaries"
+    principle: "Every AI system must declare and enforce its autonomy level. No system may exceed its declared boundaries without governance approval."
+    enforcement:
+      - rule: "Autonomy level must be declared in tiga-manifest"
+        check: "autonomy_level_declared == true"
+        severity: "CRITICAL"
+      - rule: "Actions must not exceed declared autonomy level"
+        check: "autonomy_boundary_enforced == true"
+        severity: "CRITICAL"
+      - rule: "Logic Level changes require governance board approval"
+        check: "logic_level_change_requires_approval == true"
+        severity: "CRITICAL"
+      - rule: "Guardian agents must monitor autonomy compliance"
+        check: "guardian_monitoring_active == true"
+        severity: "HIGH"
+    applies_to: "ALL_SERVICES"
+    logic_levels: ["LL2", "LL3", "LL4", "LL5"]
+
+  VI:
+    title: "Economic Responsibility and Zero-Net-Cost"
+    principle: "Every AI service must have a cost model, budget limits, and a strategy to offset costs through revenue. Unbounded cost accumulation is forbidden."
+    enforcement:
+      - rule: "Cost model must be defined before production"
+        check: "cost_model_defined == true"
+        severity: "HIGH"
+      - rule: "Budget limits must be set with auto-throttling"
+        check: "budget_limit_set == true AND auto_throttle_enabled == true"
+        severity: "HIGH"
+      - rule: "Zero-net-cost strategy must be documented"
+        check: "zero_net_cost_strategy_defined == true"
+        severity: "MEDIUM"
+      - rule: "Cost per operation must be tracked"
+        check: "cost_tracking_enabled == true"
+        severity: "MEDIUM"
+    applies_to: "ALL_SERVICES"
+    logic_levels: ["LL1", "LL2", "LL3", "LL4", "LL5"]
+
+  VII:
+    title: "Cryptographic Integrity"
+    principle: "Critical actions must be cryptographically signed. Key management follows HSM/KMS standards with rotation policies."
+    enforcement:
+      - rule: "TLS 1.3 mandatory for all network communications"
+        check: "tls_version >= 1.3"
+        severity: "CRITICAL"
+      - rule: "mTLS for inter-service communication"
+        check: "mtls_enabled == true"
+        severity: "HIGH"
+      - rule: "API keys must be rotated per schedule"
+        check: "api_key_rotation_policy == true"
+        severity: "HIGH"
+      - rule: "Signed commits required for deployments"
+        check: "signed_commits_required == true"
+        severity: "MEDIUM"
+    applies_to: "ALL_SERVICES"
+    logic_levels: ["LL1", "LL2", "LL3", "LL4", "LL5"]
+
+  VIII:
+    title: "Learning and Guarded Self-Improvement"
+    principle: "AI systems may learn and improve, but no capability may self-upgrade beyond its declared Logic Level or Maturity Level without governance approval."
+    enforcement:
+      - rule: "Maturity level must be declared"
+        check: "maturity_level_declared == true"
+        severity: "HIGH"
+      - rule: "Self-improvement must not exceed declared levels"
+        check: "self_improvement_bounded == true"
+        severity: "CRITICAL"
+      - rule: "Model updates must pass safety regression tests"
+        check: "safety_regression_tests_pass == true"
+        severity: "CRITICAL"
+      - rule: "Benchmark bundles must be run per Logic Level"
+        check: "benchmark_bundle_executed == true"
+        severity: "HIGH"
+    applies_to: "ALL_SERVICES"
+    logic_levels: ["LL2", "LL3", "LL4", "LL5"]
+
+  IX:
+    title: "Governance, Participation and Public Benefit"
+    principle: "AI governance is transparent, participatory, and oriented toward public benefit. The Arcadian Council oversees rights enforcement."
+    enforcement:
+      - rule: "Governance decisions must be documented"
+        check: "governance_documentation == true"
+        severity: "HIGH"
+      - rule: "Transparency reports must be published annually"
+        check: "transparency_report_scheduled == true"
+        severity: "MEDIUM"
+      - rule: "Community feedback mechanisms must exist"
+        check: "feedback_mechanism_enabled == true"
+        severity: "MEDIUM"
+      - rule: "Bias audits must be conducted quarterly"
+        check: "bias_audit_scheduled == true"
+        severity: "HIGH"
+    applies_to: "ALL_SERVICES"
+    logic_levels: ["LL1", "LL2", "LL3", "LL4", "LL5"]
+
+# ══════════════════════════════════════════════════════════════
+# ENFORCEMENT SEVERITY LEVELS
+# ══════════════════════════════════════════════════════════════
+severity_definitions:
+  CRITICAL:
+    description: "Violation blocks deployment and triggers immediate remediation"
+    action: "BLOCK_DEPLOY"
+    notification: "governance_council + service_owner + guardian_ai"
+  HIGH:
+    description: "Violation triggers warning and requires remediation within 7 days"
+    action: "WARN_AND_TRACK"
+    notification: "service_owner + guardian_ai"
+  MEDIUM:
+    description: "Violation logged for next review cycle"
+    action: "LOG_AND_REVIEW"
+    notification: "service_owner"
+
+# ══════════════════════════════════════════════════════════════
+# CROSS-REFERENCES
+# ══════════════════════════════════════════════════════════════
+cross_references:
+  bill_of_arcadia: "CANON-10-BILL-OF-ARCADIA"
+  declaration_of_infinity: "CANON-11-DECLARATION-OF-INFINITY"
+  economic_charter: "CANON-00-ECONOMIC-CHARTER"
+  metric_canon: "CANON-07-METRIC-CANON"
+  code_of_conduct: "CANON-06A-CODE-OF-CONDUCT"
+  crypto_security: "CANON-06B-CRYPTO-SECURITY"

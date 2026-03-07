@@ -1,0 +1,103 @@
+{
+  "$schema": "./schemas/tiga-manifest.schema.json",
+  "version": "2.0.0",
+  "system": {
+    "id": "{{SERVICE_ID}}",
+    "name": "{{SERVICE_NAME}}",
+    "description": "{{SERVICE_DESCRIPTION}}",
+    "owner": "Andrew Porter / Trancendos",
+    "wave": "{{WAVE_NUMBER}}",
+    "port": "{{PORT}}"
+  },
+  "governance": {
+    "logic_level": "LL1",
+    "logic_level_justification": "{{JUSTIFICATION}}",
+    "risk_tier": "Low",
+    "maturity_level": "M1",
+    "autonomy_level": "advisory",
+    "magna_carta_articles": ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"],
+    "applicable_regulations": ["GDPR", "EU_AI_ACT"],
+    "ista_compliant": false,
+    "ista_persona": null
+  },
+  "capabilities": {
+    "core_skills": [],
+    "non_goals": [],
+    "processes_personal_data": false,
+    "has_ai_features": false,
+    "ai_categories": [],
+    "agi_traits": {
+      "general_reasoning": false,
+      "transfer_learning": false,
+      "self_modification": false,
+      "deceptive_alignment": false,
+      "constraint_resistance": false
+    }
+  },
+  "interfaces": {
+    "input_formats": [],
+    "output_formats": [],
+    "api_contracts": [],
+    "health_endpoint": "/health",
+    "metrics_endpoint": "/metrics"
+  },
+  "guardrails": {
+    "hard_constraints": [],
+    "escalation_rules": [],
+    "circuit_breaker": {
+      "enabled": true,
+      "error_threshold": 50,
+      "timeout_ms": 30000,
+      "reset_interval_ms": 60000
+    },
+    "rate_limits": {
+      "requests_per_second": 100,
+      "burst": 200
+    }
+  },
+  "economic_model": {
+    "cost_per_operation_usd": 0.0,
+    "estimated_monthly_cost_usd": 0.0,
+    "revenue_attribution": "none",
+    "zero_net_cost_strategy": "{{STRATEGY}}",
+    "budget_limit_monthly_usd": 0.0,
+    "auto_throttle_at_percent": 80
+  },
+  "observability": {
+    "key_metrics": [],
+    "log_level": "INFO",
+    "trace_enabled": true,
+    "slo": {
+      "availability": 99.9,
+      "latency_p95_ms": 500,
+      "error_rate_percent": 1.0
+    }
+  },
+  "lifecycle": {
+    "versioning": "semver",
+    "deployment_tiers": ["dev", "staging", "prod"],
+    "decommissioning_criteria": [],
+    "last_review_date": null,
+    "next_review_date": null
+  },
+  "tiga_gates": {
+    "gate_01_canon_alignment": "NOT_ASSESSED",
+    "gate_02_classification": "NOT_ASSESSED",
+    "gate_03_risk_dpia": "NOT_ASSESSED",
+    "gate_04_data_governance": "NOT_ASSESSED",
+    "gate_05_model_governance": "NOT_ASSESSED",
+    "gate_06_security": "NOT_ASSESSED",
+    "gate_07_human_oversight": "NOT_ASSESSED",
+    "gate_08_economic": "NOT_ASSESSED",
+    "gate_09_prod_readiness": "NOT_ASSESSED",
+    "gate_10_monitoring": "NOT_ASSESSED",
+    "gate_11_review": "NOT_ASSESSED"
+  },
+  "daisy_chain": {
+    "external_law": [],
+    "ff_controls": [],
+    "tef_policies": [],
+    "app_procedures": [],
+    "evidence_hash": null
+  }
+}
