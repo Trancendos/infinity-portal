@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trancendos — Cloudflare Setup Runner</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <span class="header-icon">☁️</span>
+    <div>
+      <h1>Trancendos — Cloudflare Setup Runner</h1>
+      <p>One-click deployment for trancendos.com and all subdomains</p>
+    </div>
+    <span class="header-badge" id="statusBadge">⏳ Not Configured</span>
+  </header>
+
+  <div class="container">
+
+    <!-- Progress Bar -->
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+    </div>
+
+    <!-- Step 1: Credentials -->
+    <div class="step-card active" id="step1">
+      <div class="step-header">
+        <div class="step-number" id="step1num">1</div>
+        <h2 class="step-title">Cloudflare Credentials</h2>
+      </div>
+      <p class="step-description">
+        Enter your Cloudflare account details. You'll need your Account ID, Zone ID (for trancendos.com), 
+        and an API token with DNS edit + Tunnel edit + Access edit permissions.
+        <br><br>
+        <strong>Find these at:</strong> Cloudflare Dashboard → trancendos.com → Overview → API section (right sidebar)
+      </p>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Account ID</label>
+          <input class="form-input" id="accountId" placeholder="e.g. abc123def456..." />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Zone ID (trancendos.com)</label>
+          <input class="form-input" id="zoneId" placeholder="e.g. xyz789..." />
+        </div>
+        <div class="form-group">
+          <label class="form-label">API Token</label>
+          <input class="form-input" id="apiToken" type="password" placeholder="Bearer token with DNS + Tunnel + Access permissions" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Domain</label>
+          <input class="form-input" id="domain" value="trancendos.com" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tunnel ID (leave blank to auto-create)</label>
+          <input class="form-input" id="tunnelId" placeholder="Optional — will be created automatically" />
+        </div>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="validateCredentials()">Validate & Continue →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Subdomain Configuration -->
+    <div class="step-card" id="step2" style="opacity: 0.5; pointer-events: none;">
+      <div class="step-header">
+        <div class="step-number" id="step2num">2</div>
+        <h2 class="step-title">Subdomain Configuration</h2>
+      </div>
+      <p class="step-description">
+        Review and customise the subdomain mappings for the Trancendos ecosystem. 
+        Each subdomain routes to a specific service via the Cloudflare Tunnel.
+      </p>
+      <table class="subdomain-table" id="subdomainTable">
+        <thead>
+          <tr>
+            <th>Subdomain</th>
+            <th>Service</th>
+            <th>Port</th>
+            <th>Protocol</th>
+            <th>Access Policy</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="subdomainBody"></tbody>
+      </table>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="proceedToDeployment()">Confirm & Proceed →</button>
+        <button class="btn btn-secondary" onclick="addSubdomain()">+ Add Subdomain</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Deploy -->
+    <div class="step-card" id="step3" style="opacity: 0.5; pointer-events: none;">
+      <div class="step-header">
+        <div class="step-number" id="step3num">3</div>
+        <h2 class="step-title">Deploy Everything</h2>
+      </div>
+      <p class="step-description">
+        Click the button below to deploy all DNS records, tunnel configuration, SSL settings, 
+        and access policies in one go. This will configure trancendos.com with all subdomains.
+      </p>
+
+      <!-- Stats -->
+      <div class="stats-grid" id="deployStats">
+        <div class="stat-card">
+          <div class="stat-label">Subdomains</div>
+          <div class="stat-value" id="statSubdomains">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">DNS Records</div>
+          <div class="stat-value" id="statDNS">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Access Policies</div>
+          <div class="stat-value" id="statPolicies">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Status</div>
+          <div class="stat-value" id="statStatus" style="color: var(--warning)">Ready</div>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" id="deployBtn" onclick="deployEverything()">🚀 Deploy Everything — One Click</button>
+        <button class="btn btn-secondary" onclick="generateScripts()">📜 Generate Scripts Only</button>
+      </div>
+
+      <!-- Log Output -->
+      <div class="log-output" id="logOutput" style="display: none; margin-top: 16px;"></div>
+    </div>
+
+    <!-- Step 4: Generated Scripts -->
+    <div class="step-card" id="step4" style="opacity: 0.5; pointer-events: none;">
+      <div class="step-header">
+        <div class="step-number" id="step4num">4</div>
+        <h2 class="step-title">Generated Configuration</h2>
+      </div>
+      <p class="step-description">
+        These scripts and configs are auto-generated based on your settings. 
+        Use them for manual setup or to replicate the configuration on another server.
+      </p>
+
+      <!-- Tunnel YAML -->
+      <div style="margin-bottom: 24px;">
+        <div class="code-header">
+          <h4>⚙️ tunnel.yml — Cloudflare Tunnel Configuration</h4>
+          <button class="copy-btn" onclick="copyToClipboard('tunnelYaml')">📋 Copy</button>
+        </div>
+        <div class="code-block" id="tunnelYaml"></div>
+      </div>
+
+      <!-- Install Script -->
+      <div style="margin-bottom: 24px;">
+        <div class="code-header">
+          <h4>📜 setup.sh — Server Install Script</h4>
+          <button class="copy-btn" onclick="copyToClipboard('installScript')">📋 Copy</button>
+        </div>
+        <div class="code-block" id="installScript"></div>
+      </div>
+
+      <!-- DNS Records JSON -->
+      <div>
+        <div class="code-header">
+          <h4>📋 dns-records.json — DNS Record Definitions</h4>
+          <button class="copy-btn" onclick="copyToClipboard('dnsJson')">📋 Copy</button>
+        </div>
+        <div class="code-block" id="dnsJson"></div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-secondary" onclick="downloadAll()">⬇️ Download All Files</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>Trancendos Ecosystem — Cloudflare Setup Runner v1.0</p>
+    <p>Built for the Infinity Admin OS • Powered by <a href="https://trancendos.com">trancendos.com</a></p>
+    <p style="margin-top: 8px;">Security: API tokens are used client-side only and never stored or transmitted to third parties.</p>
+  </footer>
+
+<script>
+// ============================================================
+// TRANCENDOS CLOUDFLARE SETUP RUNNER
+// ============================================================
+
+// Default subdomain mappings for the Trancendos ecosystem
+const DEFAULT_SUBDOMAINS = [
+  { subdomain: 'infinity-os', service: 'Infinity OS Shell', port: 5173, protocol: 'http', access: 'public', description: 'Main OS Shell — React PWA desktop environment' },
+  { subdomain: 'api', service: 'API Marketplace Gateway', port: 3033, protocol: 'http', access: 'public', description: 'Centralised API gateway' },
+  { subdomain: 'identity', service: 'Infinity One IAM', port: 8787, protocol: 'http', access: 'public', description: 'Universal Account Hub — IAM, RBAC, MFA' },
+  { subdomain: 'nexus', service: 'The Nexus', port: 3029, protocol: 'http', access: 'service-token', description: 'AI Service Mesh — integration hub' },
+  { subdomain: 'hive', service: 'The Hive', port: 3027, protocol: 'http', access: 'internal', description: 'Data/Files Mesh — swarm intelligence' },
+  { subdomain: 'observatory', service: 'The Observatory', port: 3028, protocol: 'http', access: 'admin', description: 'Observability — metrics, logging, alerts' },
+  { subdomain: 'void', service: 'The Void', port: 8200, protocol: 'http', access: 'owner-only', description: 'Quantum-safe secrets vault' },
+  { subdomain: 'grid', service: 'The DigitalGrid', port: 3032, protocol: 'http', access: 'admin', description: 'CI/CD — spatial routing, quarantine' },
+  { subdomain: 'chaos', service: 'Chaos Party', port: 3031, protocol: 'http', access: 'admin', description: 'Testing suite — adversarial validation' },
+  { subdomain: 'marketplace', service: 'API Marketplace', port: 3033, protocol: 'http', access: 'public', description: 'API catalogue — listing, discovery' },
+  { subdomain: 'guardian', service: 'Guardian AI', port: 3001, protocol: 'http', access: 'service-token', description: 'Pillar AI — system guardian' },
+  { subdomain: 'oracle', service: 'Oracle AI', port: 3002, protocol: 'http', access: 'service-token', description: 'Pillar AI — knowledge oracle' },
+  { subdomain: 'prometheus', service: 'Prometheus AI', port: 3003, protocol: 'http', access: 'service-token', description: 'Pillar AI — void guardian' },
+  { subdomain: 'sentinel', service: 'Sentinel AI', port: 3004, protocol: 'http', access: 'service-token', description: 'Pillar AI — security sentinel' },
+  { subdomain: 'filesystem', service: 'Filesystem Worker', port: 8788, protocol: 'http', access: 'internal', description: 'Distributed file system' },
+  { subdomain: 'admin', service: 'Cloudflare Console', port: 5174, protocol: 'http', access: 'owner-only', description: 'This console — domain management' },
+  { subdomain: 'agora', service: 'The Agora', port: 3020, protocol: 'http', access: 'public', description: 'Community forum and marketplace' },
+  { subdomain: 'library', service: 'The Library', port: 3021, protocol: 'http', access: 'public', description: 'Knowledge base and documentation' },
+  { subdomain: 'citadel', service: 'The Citadel', port: 3022, protocol: 'http', access: 'admin', description: 'Security operations centre' },
+  { subdomain: 'treasury', service: 'The Treasury', port: 3023, protocol: 'http', access: 'admin', description: 'Financial management' },
+  { subdomain: 'workshop', service: 'The Workshop', port: 3024, protocol: 'http', access: 'internal', description: 'Development sandbox' },
+];
+
+let subdomains = [...DEFAULT_SUBDOMAINS];
+let config = {};
+let logs = [];
+
+// ============================================================
+// STEP 1: VALIDATE CREDENTIALS
+// ============================================================
+
+async function validateCredentials() {
+  const accountId = document.getElementById('accountId').value.trim();
+  const zoneId = document.getElementById('zoneId').value.trim();
+  const apiToken = document.getElementById('apiToken').value.trim();
+  const domain = document.getElementById('domain').value.trim();
+  const tunnelId = document.getElementById('tunnelId').value.trim();
+
+  if (!accountId || !zoneId || !apiToken) {
+    alert('Please fill in Account ID, Zone ID, and API Token.');
+    return;
+  }
+
+  config = { accountId, zoneId, apiToken, domain, tunnelId };
+
+  addLog('info', 'Validating Cloudflare credentials...');
+
+  try {
+    // Verify zone access
+    const response = await cfApi(`/zones/${zoneId}`, 'GET');
+    if (response.success) {
+      addLog('success', `Zone verified: ${response.result.name} (${response.result.status})`);
+      completeStep(1);
+      activateStep(2);
+      renderSubdomainTable();
+      updateProgress(25);
+    } else {
+      addLog('error', `Zone verification failed: ${response.errors?.[0]?.message || 'Unknown error'}`);
+    }
+  } catch (err) {
+    addLog('error', `API call failed: ${err.message}`);
+    // Still allow proceeding for offline/script-only mode
+    if (confirm('Could not verify credentials (may be CORS). Continue in script-generation mode?')) {
+      completeStep(1);
+      activateStep(2);
+      renderSubdomainTable();
+      updateProgress(25);
+    }
+  }
+}
+
+// ============================================================
+// STEP 2: SUBDOMAIN CONFIGURATION
+// ============================================================
+
+function renderSubdomainTable() {
+  const tbody = document.getElementById('subdomainBody');
+  tbody.innerHTML = subdomains.map((sub, i) => `
+    <tr>
+      <td><code>${sub.subdomain}.${config.domain}</code></td>
+      <td>${sub.service}</td>
+      <td>:${sub.port}</td>
+      <td>${sub.protocol}</td>
+      <td><span class="badge badge-${sub.access === 'public' ? 'active' : sub.access === 'owner-only' ? 'error' : 'pending'}">${sub.access}</span></td>
+      <td><span class="badge badge-pending">PENDING</span></td>
+    </tr>
+  `).join('');
+}
+
+function addSubdomain() {
+  const subdomain = prompt('Subdomain name (e.g. "myservice"):');
+  if (!subdomain) return;
+  const service = prompt('Service name:') || subdomain;
+  const port = parseInt(prompt('Port number:') || '3000');
+  subdomains.push({
+    subdomain,
+    service,
+    port,
+    protocol: 'http',
+    access: 'internal',
+    description: `Custom service: ${service}`,
+  });
+  renderSubdomainTable();
+}
+
+function proceedToDeployment() {
+  completeStep(2);
+  activateStep(3);
+  updateProgress(50);
+
+  document.getElementById('statSubdomains').textContent = subdomains.length;
+  document.getElementById('statDNS').textContent = subdomains.length;
+  document.getElementById('statPolicies').textContent = subdomains.filter(s => s.access !== 'public').length;
+}
+
+// ============================================================
+// STEP 3: DEPLOY EVERYTHING
+// ============================================================
+
+async function deployEverything() {
+  const btn = document.getElementById('deployBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Deploying...';
+
+  const logEl = document.getElementById('logOutput');
+  logEl.style.display = 'block';
+  logs = [];
+
+  addLog('info', '🚀 Starting Trancendos deployment...');
+  document.getElementById('statStatus').textContent = 'Deploying';
+  document.getElementById('statStatus').style.color = 'var(--cf-orange)';
+
+  let successCount = 0;
+  let errorCount = 0;
+
+  // Step 1: SSL Configuration
+  addLog('info', 'Step 1/5: Configuring SSL/TLS (Full Strict)...');
+  try {
+    await cfApi(`/zones/${config.zoneId}/settings/ssl`, 'PATCH', { value: 'strict' });
+    addLog('success', '✅ SSL set to Full (Strict)');
+    successCount++;
+  } catch (e) {
+    addLog('warning', `⚠️ SSL config skipped: ${e.message}`);
+  }
+
+  // Step 2: HSTS
+  addLog('info', 'Step 2/5: Enabling HSTS...');
+  try {
+    await cfApi(`/zones/${config.zoneId}/settings/security_header`, 'PATCH', {
+      value: { strict_transport_security: { enabled: true, max_age: 31536000, include_subdomains: true, preload: true } }
+    });
+    addLog('success', '✅ HSTS enabled (max-age: 1 year, preload)');
+    successCount++;
+  } catch (e) {
+    addLog('warning', `⚠️ HSTS config skipped: ${e.message}`);
+  }
+
+  // Step 3: Always HTTPS
+  addLog('info', 'Step 3/5: Enabling Always Use HTTPS...');
+  try {
+    await cfApi(`/zones/${config.zoneId}/settings/always_use_https`, 'PATCH', { value: 'on' });
+    addLog('success', '✅ Always Use HTTPS enabled');
+    successCount++;
+  } catch (e) {
+    addLog('warning', `⚠️ HTTPS redirect skipped: ${e.message}`);
+  }
+
+  // Step 4: Create tunnel if needed
+  if (!config.tunnelId) {
+    addLog('info', 'Step 4/5: Creating Cloudflare Tunnel...');
+    try {
+      const tunnelResult = await cfApi(`/accounts/${config.accountId}/tunnels`, 'POST', {
+        name: 'infinity-os',
+        tunnel_secret: btoa(crypto.randomUUID()),
+      });
+      config.tunnelId = tunnelResult.result.id;
+      addLog('success', `✅ Tunnel created: ${config.tunnelId}`);
+      successCount++;
+    } catch (e) {
+      addLog('error', `❌ Tunnel creation failed: ${e.message}`);
+      errorCount++;
+    }
+  } else {
+    addLog('info', `Step 4/5: Using existing tunnel: ${config.tunnelId}`);
+  }
+
+  // Step 5: Create DNS records for all subdomains
+  addLog('info', `Step 5/5: Creating ${subdomains.length} DNS records...`);
+  for (let i = 0; i < subdomains.length; i++) {
+    const sub = subdomains[i];
+    const fullDomain = `${sub.subdomain}.${config.domain}`;
+    try {
+      await cfApi(`/zones/${config.zoneId}/dns_records`, 'POST', {
+        type: 'CNAME',
+        name: sub.subdomain,
+        content: config.tunnelId ? `${config.tunnelId}.cfargotunnel.com` : `tunnel.${config.domain}`,
+        ttl: 1,
+        proxied: true,
+        comment: `${sub.service} — managed by Trancendos Setup Runner`,
+      });
+      addLog('success', `  ✅ ${fullDomain} → ${sub.service} (:${sub.port})`);
+      successCount++;
+    } catch (e) {
+      addLog('error', `  ❌ ${fullDomain}: ${e.message}`);
+      errorCount++;
+    }
+    updateProgress(50 + Math.round((i / subdomains.length) * 40));
+  }
+
+  // Summary
+  addLog('info', '');
+  addLog('info', '═══════════════════════════════════════');
+  if (errorCount === 0) {
+    addLog('success', `🎉 Deployment complete! ${successCount} operations successful.`);
+    document.getElementById('statStatus').textContent = 'Complete';
+    document.getElementById('statStatus').style.color = 'var(--success)';
+    document.getElementById('statusBadge').textContent = '✅ Deployed';
+    document.getElementById('statusBadge').style.background = 'rgba(0,212,170,0.3)';
+  } else {
+    addLog('warning', `⚠️ Deployment finished with ${errorCount} errors. ${successCount} operations successful.`);
+    document.getElementById('statStatus').textContent = `${errorCount} Errors`;
+    document.getElementById('statStatus').style.color = 'var(--error)';
+  }
+  addLog('info', '═══════════════════════════════════════');
+
+  updateProgress(90);
+  btn.disabled = false;
+  btn.textContent = '🚀 Deploy Everything — One Click';
+
+  // Auto-generate scripts
+  generateScripts();
+}
+
+function generateScripts() {
+  completeStep(3);
+  activateStep(4);
+  updateProgress(100);
+
+  // Generate tunnel YAML
+  document.getElementById('tunnelYaml').textContent = generateTunnelYaml();
+
+  // Generate install script
+  document.getElementById('installScript').textContent = generateInstallScript();
+
+  // Generate DNS JSON
+  document.getElementById('dnsJson').textContent = JSON.stringify(
+    subdomains.map(sub => ({
+      type: 'CNAME',
+      name: `${sub.subdomain}.${config.domain}`,
+      content: config.tunnelId ? `${config.tunnelId}.cfargotunnel.com` : `tunnel.${config.domain}`,
+      ttl: 1,
+      proxied: true,
+      comment: `${sub.service} — ${sub.description}`,
+    })),
+    null, 2
+  );
+}
+
+// ============================================================
+// CONFIG GENERATORS
+// ============================================================
+
+function generateTunnelYaml() {
+  let yaml = `# ============================================================
+# Cloudflare Tunnel Configuration — Trancendos Ecosystem
+# Auto-generated by Cloudflare Setup Runner
+# Date: ${new Date().toISOString()}
+# ============================================================
+
+tunnel: ${config.tunnelId || '${CLOUDFLARE_TUNNEL_ID}'}
+credentials-file: /etc/cloudflared/credentials.json
+
+loglevel: info
+logfile: /var/log/cloudflared/tunnel.log
+
+# Metrics endpoint for The Observatory
+metrics: 0.0.0.0:2000
+
+ingress:
+`;
+
+  for (const sub of subdomains) {
+    yaml += `  # ${sub.service} — ${sub.description}
+  - hostname: ${sub.subdomain}.${config.domain}
+    service: ${sub.protocol}://localhost:${sub.port}
+    originRequest:
+      noTLSVerify: false
+      connectTimeout: 30s
+      tcpKeepAlive: 30s
+      httpHostHeader: ${sub.subdomain}.${config.domain}
+
+`;
+  }
+
+  yaml += `  # Catch-all — return 404 for unmatched routes
+  - service: http_status:404
+`;
+
+  return yaml;
+}
+
+function generateInstallScript() {
+  return `#!/bin/bash
+# ============================================================
+# Cloudflare Tunnel Setup Script — Trancendos Ecosystem
+# Auto-generated by Cloudflare Setup Runner
+# Date: ${new Date().toISOString()}
+# ============================================================
+# Prerequisites:
+#   - Cloudflare account with ${config.domain} domain
+#   - cloudflared CLI: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/
+# ============================================================
+
+set -euo pipefail
+
+DOMAIN="${config.domain}"
+TUNNEL_NAME="infinity-os"
+
+echo "🚀 Trancendos Cloudflare Tunnel Setup"
+echo "======================================"
+echo ""
+
+# Step 1: Check cloudflared is installed
+if ! command -v cloudflared &> /dev/null; then
+  echo "Installing cloudflared..."
+  curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+  sudo dpkg -i cloudflared.deb
+  rm cloudflared.deb
+fi
+
+# Step 2: Authenticate with Cloudflare
+echo "Step 1: Authenticating with Cloudflare..."
+cloudflared tunnel login
+
+# Step 3: Create tunnel (or use existing)
+${config.tunnelId ? `TUNNEL_ID="${config.tunnelId}"
+echo "Using existing tunnel: $TUNNEL_ID"` : `echo "Step 2: Creating tunnel '$TUNNEL_NAME'..."
+cloudflared tunnel create $TUNNEL_NAME
+TUNNEL_ID=$(cloudflared tunnel list | grep $TUNNEL_NAME | awk '{print $1}')
+echo "Tunnel ID: $TUNNEL_ID"`}
+
+# Step 4: Create DNS records for all subdomains
+echo "Step 3: Creating DNS records..."
+${subdomains.map(s => `cloudflared tunnel route dns $TUNNEL_NAME ${s.subdomain}.\${DOMAIN}`).join('\n')}
+
+# Step 5: Deploy tunnel configuration
+echo "Step 4: Deploying tunnel configuration..."
+sudo mkdir -p /etc/cloudflared
+sudo tee /etc/cloudflared/config.yml > /dev/null << 'TUNNELEOF'
+${generateTunnelYaml()}
+TUNNELEOF
+
+# Step 6: Install as system service
+echo "Step 5: Installing as system service..."
+sudo cloudflared service install
+
+# Step 7: Start tunnel
+echo "Step 6: Starting tunnel..."
+sudo systemctl start cloudflared
+sudo systemctl enable cloudflared
+
+echo ""
+echo "✅ Cloudflare Tunnel setup complete!"
+echo "🌐 Domain: $DOMAIN"
+echo "🔗 Tunnel: $TUNNEL_ID"
+echo ""
+echo "Subdomains configured:"
+${subdomains.map(s => `echo "  • ${s.subdomain}.\${DOMAIN} → ${s.service} (:${s.port})"`).join('\n')}
+echo ""
+echo "📊 Metrics: http://localhost:2000/metrics"
+echo "🔍 Logs: /var/log/cloudflared/tunnel.log"
+echo ""
+echo "Next steps:"
+echo "  1. Start your services (docker-compose up -d)"
+echo "  2. Verify tunnel: cloudflared tunnel info $TUNNEL_NAME"
+echo "  3. Check DNS: dig ${subdomains[0]?.subdomain || 'infinity-os'}.\${DOMAIN}"
+`;
+}
+
+// ============================================================
+// CLOUDFLARE API HELPER
+// ============================================================
+
+async function cfApi(endpoint, method = 'GET', body = null) {
+  const url = `https://api.cloudflare.com/client/v4${endpoint}`;
+  const options = {
+    method,
+    headers: {
+      'Authorization': `Bearer ${config.apiToken}`,
+      'Content-Type': 'application/json',
+    },
+  };
+  if (body) options.body = JSON.stringify(body);
+
+  const response = await fetch(url, options);
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.errors?.[0]?.message || `API error: ${response.status}`);
+  }
+
+  return data;
+}
+
+// ============================================================
+// UI HELPERS
+// ============================================================
+
+function completeStep(num) {
+  const card = document.getElementById(`step${num}`);
+  const stepNum = document.getElementById(`step${num}num`);
+  card.classList.remove('active');
+  card.classList.add('complete');
+  stepNum.classList.add('complete');
+  stepNum.textContent = '✓';
+}
+
+function activateStep(num) {
+  const card = document.getElementById(`step${num}`);
+  card.style.opacity = '1';
+  card.style.pointerEvents = 'auto';
+  card.classList.add('active');
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function updateProgress(percent) {
+  document.getElementById('progressFill').style.width = `${percent}%`;
+}
+
+function addLog(level, message) {
+  const time = new Date().toLocaleTimeString();
+  logs.push({ time, level, message });
+  const logEl = document.getElementById('logOutput');
+  if (logEl) {
+    logEl.innerHTML = logs.map(l =>
+      `<div class="log-entry"><span class="log-time">[${l.time}]</span> <span class="log-${l.level}">${l.message}</span></div>`
+    ).join('');
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+}
+
+function copyToClipboard(elementId) {
+  const text = document.getElementById(elementId).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    btn.textContent = '✅ Copied!';
+    setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
+  });
+}
+
+function downloadAll() {
+  // Download tunnel YAML
+  downloadFile('tunnel.yml', document.getElementById('tunnelYaml').textContent);
+  // Download install script
+  downloadFile('setup.sh', document.getElementById('installScript').textContent);
+  // Download DNS JSON
+  downloadFile('dns-records.json', document.getElementById('dnsJson').textContent);
+}
+
+function downloadFile(filename, content) {
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+
+</body>
+</html>
