@@ -1,253 +1,222 @@
 /**
- * UniversalSearch — Spotlight-style universal search overlay
- * Searches: files, modules, users, settings, content
- * WCAG 2.2 AA: keyboard navigation, ARIA combobox pattern
+ * UniversalSearch — Infinity OS Command Palette
+ * ============================================================
+ * Premium Spotlight/Raycast-style command palette with:
+ * - Glassmorphism overlay with backdrop blur
+ * - Real-time fuzzy search across modules, files, settings
+ * - Keyboard navigation (arrows, enter, escape)
+ * - Category grouping with icons
+ * - Smooth animations on open/close
+ * - WCAG 2.2 AA: ARIA combobox pattern, keyboard accessible
+ * ============================================================
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { SearchResult } from '@infinity-os/types';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { MODULE_REGISTRY } from './WindowManager';
 
 interface UniversalSearchProps {
   onClose: () => void;
   onOpenModule: (moduleId: string, title: string) => void;
 }
 
-const QUICK_ACTIONS = [
-  { id: 'qa-files',    type: 'module' as const, title: 'File Manager',  description: 'Browse your files',          moduleId: 'com.infinity-os.file-manager', score: 1, iconUrl: '📁' },
-  { id: 'qa-editor',  type: 'module' as const, title: 'Text Editor',   description: 'Create or edit a document',  moduleId: 'com.infinity-os.text-editor',  score: 1, iconUrl: '📝' },
-  { id: 'qa-term',    type: 'module' as const, title: 'Terminal',      description: 'Open a terminal session',    moduleId: 'com.infinity-os.terminal',     score: 1, iconUrl: '⌨️' },
-  { id: 'qa-store',   type: 'module' as const, title: 'App Store',     description: 'Browse Infinity Market',     moduleId: 'com.infinity-os.app-store',    score: 1, iconUrl: '🏪' },
-  { id: 'qa-settings',type: 'module' as const, title: 'Settings',      description: 'Configure Infinity OS',      moduleId: 'com.infinity-os.settings',     score: 1, iconUrl: '⚙️' },
+interface SearchItem {
+  id: string;
+  icon: string;
+  title: string;
+  description: string;
+  category: string;
+  moduleId?: string;
+  action?: string;
+}
+
+const QUICK_ACTIONS: SearchItem[] = [
+  { id: 'qa-files', icon: '📁', title: 'File Manager', description: 'Browse your files', category: 'Modules', moduleId: 'com.infinity-os.file-manager' },
+  { id: 'qa-term', icon: '⌨️', title: 'Terminal', description: 'Open a terminal session', category: 'Modules', moduleId: 'com.infinity-os.terminal' },
+  { id: 'qa-ai', icon: '🤖', title: 'AI Studio', description: 'AI-powered tools', category: 'Modules', moduleId: 'com.infinity-os.ai-studio' },
+  { id: 'qa-kanban', icon: '📋', title: 'Task Board', description: 'Manage tasks and projects', category: 'Modules', moduleId: 'com.infinity-os.kanban' },
+  { id: 'qa-settings', icon: '⚙️', title: 'Settings', description: 'Configure Infinity OS', category: 'Modules', moduleId: 'com.infinity-os.settings' },
+  { id: 'qa-observatory', icon: '🔭', title: 'Observatory', description: 'Platform monitoring', category: 'Platform Core', moduleId: 'com.infinity-os.observatory' },
+  { id: 'qa-hive', icon: '🐝', title: 'HIVE', description: 'Agent swarm intelligence', category: 'Platform Core', moduleId: 'com.infinity-os.hive' },
 ];
+
+// Build searchable items from module registry
+const ALL_ITEMS: SearchItem[] = [
+  ...MODULE_REGISTRY.map(m => ({
+    id: m.id,
+    icon: m.icon,
+    title: m.name,
+    description: `Open ${m.name}`,
+    category: m.category.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+    moduleId: m.id,
+  })),
+];
+
+function fuzzyMatch(query: string, text: string): boolean {
+  const q = query.toLowerCase();
+  const t = text.toLowerCase();
+  if (t.includes(q)) return true;
+  let qi = 0;
+  for (let ti = 0; ti < t.length && qi < q.length; ti++) {
+    if (t[ti] === q[qi]) qi++;
+  }
+  return qi === q.length;
+}
 
 export function UniversalSearch({ onClose, onOpenModule }: UniversalSearchProps) {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResult[]>(QUICK_ACTIONS);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [isSearching, setIsSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  // Focus input on mount
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [onClose]);
-
-  // Search with debounce
-  useEffect(() => {
-    if (!query.trim()) {
-      setResults(QUICK_ACTIONS);
-      setSelectedIndex(0);
-      return;
-    }
-
-    setIsSearching(true);
-    const timer = setTimeout(async () => {
-      // In production: call Search Service worker
-      const filtered = QUICK_ACTIONS.filter(r =>
-        r.title.toLowerCase().includes(query.toLowerCase()) ||
-        r.description?.toLowerCase().includes(query.toLowerCase())
-      );
-      setResults(filtered);
-      setSelectedIndex(0);
-      setIsSearching(false);
-    }, 150);
-
-    return () => clearTimeout(timer);
+  const results = useMemo(() => {
+    if (!query.trim()) return QUICK_ACTIONS;
+    return ALL_ITEMS.filter(item =>
+      fuzzyMatch(query, item.title) || fuzzyMatch(query, item.description) || fuzzyMatch(query, item.category)
+    ).slice(0, 12);
   }, [query]);
 
-  const handleSelect = useCallback((result: SearchResult) => {
-    if (result.type === 'module' && result.moduleId) {
-      onOpenModule(result.moduleId, result.title);
-      onClose();
+  // Reset selection when results change
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [results]);
+
+  // Scroll selected item into view
+  useEffect(() => {
+    const el = listRef.current?.querySelector(`[data-index="${selectedIndex}"]`);
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [selectedIndex]);
+
+  const handleSelect = useCallback((item: SearchItem) => {
+    if (item.moduleId) {
+      onOpenModule(item.moduleId, item.title);
     }
+    onClose();
   }, [onOpenModule, onClose]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     switch (e.key) {
+      case 'Escape':
+        e.preventDefault();
+        onClose();
+        break;
       case 'ArrowDown':
         e.preventDefault();
-        setSelectedIndex(i => Math.min(i + 1, results.length - 1));
+        setSelectedIndex(prev => Math.min(prev + 1, results.length - 1));
         break;
       case 'ArrowUp':
         e.preventDefault();
-        setSelectedIndex(i => Math.max(i - 1, 0));
+        setSelectedIndex(prev => Math.max(prev - 1, 0));
         break;
       case 'Enter':
         e.preventDefault();
-        if (results[selectedIndex]) handleSelect(results[selectedIndex]);
+        if (results[selectedIndex]) {
+          handleSelect(results[selectedIndex]);
+        }
         break;
     }
-  }, [results, selectedIndex, handleSelect]);
+  }, [results, selectedIndex, handleSelect, onClose]);
+
+  // Group results by category
+  const grouped = useMemo(() => {
+    const groups: Record<string, SearchItem[]> = {};
+    results.forEach(item => {
+      if (!groups[item.category]) groups[item.category] = [];
+      groups[item.category].push(item);
+    });
+    return groups;
+  }, [results]);
+
+  // Flat index mapping for keyboard nav
+  let flatIndex = 0;
 
   return (
-    <>
-      {/* Backdrop */}
+    <div className="search-overlay" onClick={onClose}>
       <div
-        onClick={onClose}
-        aria-hidden="true"
-        style={{
-          position: 'fixed', inset: 0,
-          background: 'var(--bg-overlay)',
-          backdropFilter: 'blur(4px)',
-          zIndex: 8000,
-        }}
-      />
-
-      {/* Search Panel */}
-      <div
-        role="dialog"
-        aria-label="Universal Search"
-        aria-modal="true"
-        style={{
-          position: 'fixed',
-          top: '20%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '100%',
-          maxWidth: 600,
-          background: 'var(--bg-surface)',
-          border: '1px solid var(--border-default)',
-          borderRadius: 'var(--radius-xl)',
-          boxShadow: 'var(--shadow-lg)',
-          zIndex: 8001,
-          overflow: 'hidden',
-        }}
+        className="search-palette"
+        onClick={(e) => e.stopPropagation()}
+        role="combobox"
+        aria-expanded="true"
+        aria-haspopup="listbox"
+        aria-label="Universal search"
       >
-        {/* Search Input */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          padding: '16px 20px',
-          borderBottom: '1px solid var(--border-subtle)',
-        }}>
-          <span aria-hidden="true" style={{ fontSize: 20, color: 'var(--text-muted)' }}>🔍</span>
+        {/* Search input */}
+        <div className="search-palette__input-wrapper">
+          <svg className="search-palette__search-icon" viewBox="0 0 20 20" fill="currentColor" width="20" height="20" aria-hidden="true">
+            <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
+          </svg>
           <input
             ref={inputRef}
-            type="search"
-            role="combobox"
-            aria-expanded={results.length > 0}
-            aria-controls="search-results"
-            aria-activedescendant={results[selectedIndex] ? `result-${results[selectedIndex].id}` : undefined}
-            aria-label="Search Infinity OS"
-            placeholder="Search apps, files, settings..."
+            type="text"
+            className="search-palette__input"
+            placeholder="Search modules, files, commands…"
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            style={{
-              flex: 1,
-              border: 'none',
-              background: 'transparent',
-              fontSize: 18,
-              color: 'var(--text-primary)',
-              outline: 'none',
-              fontFamily: 'var(--font-sans)',
-            }}
+            aria-label="Search"
+            aria-autocomplete="list"
+            aria-controls="search-results"
+            aria-activedescendant={results[selectedIndex] ? `search-item-${results[selectedIndex].id}` : undefined}
           />
-          {isSearching && (
-            <span className="spinner" aria-label="Searching..." style={{ borderTopColor: 'var(--accent-primary)' }} />
-          )}
-          <kbd style={{
-            padding: '2px 8px',
-            background: 'var(--bg-input)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 6,
-            fontSize: 11,
-            color: 'var(--text-muted)',
-          }}>
-            ESC
-          </kbd>
+          <kbd className="search-palette__kbd" aria-hidden="true">ESC</kbd>
         </div>
 
         {/* Results */}
-        <ul
-          id="search-results"
+        <div
           ref={listRef}
+          id="search-results"
+          className="search-palette__results"
           role="listbox"
-          aria-label="Search results"
-          style={{
-            listStyle: 'none',
-            maxHeight: 360,
-            overflowY: 'auto',
-            padding: '8px 0',
-          }}
         >
           {results.length === 0 ? (
-            <li style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
-              No results for "{query}"
-            </li>
+            <div className="search-palette__empty">
+              <span className="search-palette__empty-icon" aria-hidden="true">🔍</span>
+              <p>No results for "{query}"</p>
+            </div>
           ) : (
-            results.map((result, index) => (
-              <li
-                key={result.id}
-                id={`result-${result.id}`}
-                role="option"
-                aria-selected={index === selectedIndex}
-                onClick={() => handleSelect(result)}
-                onMouseEnter={() => setSelectedIndex(index)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  padding: '10px 20px',
-                  cursor: 'pointer',
-                  background: index === selectedIndex ? 'rgba(108,99,255,0.1)' : 'transparent',
-                  borderLeft: index === selectedIndex ? '2px solid var(--accent-primary)' : '2px solid transparent',
-                  transition: 'background 0.1s ease',
-                }}
-              >
-                <span style={{ fontSize: 22, width: 32, textAlign: 'center' }}>
-                  {result.iconUrl}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {result.title}
-                  </div>
-                  {result.description && (
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>
-                      {result.description}
-                    </div>
-                  )}
-                </div>
-                <span style={{
-                  fontSize: 11,
-                  color: 'var(--text-muted)',
-                  background: 'var(--bg-input)',
-                  padding: '2px 8px',
-                  borderRadius: 4,
-                  border: '1px solid var(--border-subtle)',
-                }}>
-                  {result.type}
-                </span>
-              </li>
+            Object.entries(grouped).map(([category, items]) => (
+              <div key={category} className="search-palette__group">
+                <div className="search-palette__group-label">{category}</div>
+                {items.map((item) => {
+                  const currentIndex = flatIndex++;
+                  const isSelected = currentIndex === selectedIndex;
+                  return (
+                    <button
+                      key={item.id}
+                      id={`search-item-${item.id}`}
+                      data-index={currentIndex}
+                      role="option"
+                      aria-selected={isSelected}
+                      className={`search-palette__item ${isSelected ? 'search-palette__item--selected' : ''}`}
+                      onClick={() => handleSelect(item)}
+                      onMouseEnter={() => setSelectedIndex(currentIndex)}
+                    >
+                      <span className="search-palette__item-icon" aria-hidden="true">{item.icon}</span>
+                      <div className="search-palette__item-text">
+                        <span className="search-palette__item-title">{item.title}</span>
+                        <span className="search-palette__item-desc">{item.description}</span>
+                      </div>
+                      {isSelected && (
+                        <kbd className="search-palette__item-hint" aria-hidden="true">↵</kbd>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             ))
           )}
-        </ul>
+        </div>
 
         {/* Footer */}
-        <div style={{
-          padding: '8px 20px',
-          borderTop: '1px solid var(--border-subtle)',
-          display: 'flex',
-          gap: 16,
-          fontSize: 11,
-          color: 'var(--text-muted)',
-        }}>
+        <div className="search-palette__footer" aria-hidden="true">
           <span><kbd>↑↓</kbd> Navigate</span>
           <span><kbd>↵</kbd> Open</span>
           <span><kbd>ESC</kbd> Close</span>
         </div>
       </div>
-    </>
+    </div>
   );
 }

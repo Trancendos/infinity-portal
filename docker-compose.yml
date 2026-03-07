@@ -1,0 +1,209 @@
+# ============================================================
+# Infinity Portal — Unified Docker Compose
+# ============================================================
+# Usage:
+#   Development:  docker compose --profile dev up
+#   Production:   docker compose --profile prod up -d
+#   Full stack:   docker compose --profile dev --profile tools up
+# ============================================================
+
+name: infinity-portal
+
+services:
+  # ── PostgreSQL Database ──────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: infinity-db
+    profiles: ["dev", "prod"]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-infinity}
+      POSTGRES_USER: ${POSTGRES_USER:-infinity}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-infinity_dev_2024}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-infinity}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ── Redis Cache ──────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: infinity-redis
+    profiles: ["dev", "prod"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Backend (FastAPI) — Development ──────────────────────
+  backend-dev:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: infinity-backend-dev
+    profiles: ["dev"]
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-infinity}:${POSTGRES_PASSWORD:-infinity_dev_2024}@postgres:5432/${POSTGRES_DB:-infinity}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - CORS_ORIGINS=http://localhost:${FRONTEND_PORT:-5173},http://localhost:3000
+      - LOG_LEVEL=debug
+    volumes:
+      - ./backend:/app
+      - backend-cache:/app/.cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ── Backend (FastAPI) — Production ───────────────────────
+  backend-prod:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: infinity-backend-prod
+    profiles: ["prod"]
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - LOG_LEVEL=warning
+      - WORKERS=${WORKERS:-4}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "2.0"
+        reservations:
+          memory: 256M
+          cpus: "0.5"
+    restart: unless-stopped
+
+  # ── Frontend (Vite/React) — Development ──────────────────
+  frontend-dev:
+    build:
+      context: ./apps/shell
+      dockerfile: ../../docker/Dockerfile.frontend
+      target: development
+    container_name: infinity-frontend-dev
+    profiles: ["dev"]
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    environment:
+      - VITE_BACKEND_API_URL=http://localhost:${BACKEND_PORT:-8000}
+      - VITE_WS_URL=ws://localhost:${BACKEND_PORT:-8000}/ws
+      - VITE_APP_NAME=Infinity Portal
+      - VITE_APP_VERSION=2.5.0-dev
+    volumes:
+      - ./apps/shell:/app
+      - /app/node_modules
+    depends_on:
+      - backend-dev
+    restart: unless-stopped
+
+  # ── Frontend (Nginx) — Production ────────────────────────
+  frontend-prod:
+    build:
+      context: ./apps/shell
+      dockerfile: ../../docker/Dockerfile.frontend
+      target: production
+    container_name: infinity-frontend-prod
+    profiles: ["prod"]
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    environment:
+      - VITE_BACKEND_API_URL=${BACKEND_URL:-https://api.infinity-portal.com}
+      - VITE_WS_URL=${WS_URL:-wss://api.infinity-portal.com/ws}
+      - VITE_APP_NAME=Infinity Portal
+      - VITE_APP_VERSION=2.5.0
+    depends_on:
+      - backend-prod
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
+    restart: unless-stopped
+
+  # ── pgAdmin (Dev Tools) ─────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: infinity-pgadmin
+    profiles: ["tools"]
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@infinity.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # ── Redis Commander (Dev Tools) ──────────────────────────
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: infinity-redis-ui
+    profiles: ["tools"]
+    ports:
+      - "${REDIS_UI_PORT:-8081}:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
+  backend-cache:
+    driver: local
+  pgadmin-data:
+    driver: local

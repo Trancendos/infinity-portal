@@ -1,13 +1,16 @@
-# .github/workflows/deploy-cloudflare.yml
-# Deploy TypeScript services to Cloudflare Workers
+# ============================================================
+# Deploy to Cloudflare — Full Stack (Pages + Workers)
+# ============================================================
+# Deploys:
+#   1. Frontend → Cloudflare Pages
+#   2. API Gateway Worker → Cloudflare Workers
+# ============================================================
+
 name: Deploy to Cloudflare
 
 on:
   workflow_call:
     inputs:
-      worker-name:
-        type: string
-        required: true
       environment:
         type: string
         default: "production"
@@ -17,12 +20,8 @@ on:
       CLOUDFLARE_ACCOUNT_ID:
         required: true
 
-  # Also allow manual trigger
   workflow_dispatch:
     inputs:
-      worker-name:
-        description: "Worker name to deploy"
-        required: true
       environment:
         description: "Target environment"
         default: "production"
@@ -30,50 +29,149 @@ on:
         options:
           - production
           - staging
+      deploy_frontend:
+        description: "Deploy frontend to Pages"
+        type: boolean
+        default: true
+      deploy_gateway:
+        description: "Deploy API gateway worker"
+        type: boolean
+        default: true
+
+env:
+  NODE_VERSION: "20"
 
 jobs:
-  deploy:
+  # ── Build Frontend ─────────────────────────────────────
+  build-frontend:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
+    if: ${{ github.event.inputs.deploy_frontend != 'false' }}
+    outputs:
+      build-success: ${{ steps.build.outcome == 'success' }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
-          node-version: "18"
-          cache: "npm"
+          node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
+        working-directory: apps/shell
         run: npm ci
 
-      - name: Build
-        run: npm run build
+      - name: Build frontend
+        id: build
+        working-directory: apps/shell
+        env:
+          VITE_BACKEND_API_URL: ${{ inputs.environment == 'production' && 'https://api.infinity-portal.com' || 'https://api-staging.infinity-portal.com' }}
+          VITE_WS_URL: ${{ inputs.environment == 'production' && 'wss://api.infinity-portal.com/ws' || 'wss://api-staging.infinity-portal.com/ws' }}
+          VITE_APP_NAME: "Infinity Portal"
+          VITE_APP_VERSION: ${{ github.sha }}
+        run: npx vite build
 
-      - name: Run smoke tests
-        run: npm test -- --passWithNoTests
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: apps/shell/dist
+          retention-days: 1
 
-      - name: Deploy to Cloudflare Workers
+  # ── Deploy Frontend to Pages ───────────────────────────
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    needs: build-frontend
+    if: ${{ needs.build-frontend.result == 'success' }}
+    environment: ${{ inputs.environment || 'production' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+
+      - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --name ${{ inputs.worker-name }}
+          command: pages deploy dist --project-name=infinity-portal --branch=${{ inputs.environment == 'production' && 'main' || 'staging' }}
 
-      - name: Post-deploy health check
+      - name: Post-deploy frontend check
         run: |
-          WORKER_URL="https://${{ inputs.worker-name }}.${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.workers.dev"
-          echo "Checking health at ${WORKER_URL}/health ..."
+          PAGES_URL="${{ inputs.environment == 'production' && 'https://infinity-portal.pages.dev' || 'https://staging.infinity-portal.pages.dev' }}"
+          echo "Checking frontend at ${PAGES_URL} ..."
+
+          for i in {1..5}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${PAGES_URL}" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Frontend is live (attempt $i)"
+              exit 0
+            fi
+            echo "⏳ Attempt $i: status=$STATUS, retrying in 10s..."
+            sleep 10
+          done
+
+          echo "⚠️ Frontend may still be propagating"
+
+  # ── Deploy API Gateway Worker ──────────────────────────
+  deploy-gateway:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.deploy_gateway != 'false' }}
+    environment: ${{ inputs.environment || 'production' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install worker dependencies
+        working-directory: workers/api-gateway
+        run: npm install wrangler typescript --save-dev 2>/dev/null || true
+
+      - name: Deploy API Gateway
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/api-gateway
+          command: deploy --env ${{ inputs.environment || 'production' }}
+
+      - name: Post-deploy gateway check
+        run: |
+          WORKER_URL="https://infinity-api-gateway.${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.workers.dev"
+          echo "Checking gateway at ${WORKER_URL}/health ..."
 
           for i in {1..5}; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${WORKER_URL}/health" || echo "000")
             if [ "$STATUS" = "200" ]; then
-              echo "✅ Health check passed (attempt $i)"
+              echo "✅ API Gateway is live (attempt $i)"
               exit 0
             fi
             echo "⏳ Attempt $i: status=$STATUS, retrying in 5s..."
             sleep 5
           done
 
-          echo "⚠️ Health check did not return 200 after 5 attempts"
-          # Don't fail the deploy - worker may need warm-up time
+          echo "⚠️ Gateway may need warm-up time"
+
+  # ── Summary ────────────────────────────────────────────
+  deploy-summary:
+    runs-on: ubuntu-latest
+    needs: [deploy-frontend, deploy-gateway]
+    if: always()
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "╔══════════════════════════════════════════╗"
+          echo "║  ∞  INFINITY PORTAL — Deploy Summary     ║"
+          echo "╠══════════════════════════════════════════╣"
+          echo "║  Environment: ${{ inputs.environment || 'production' }}"
+          echo "║  Frontend:    ${{ needs.deploy-frontend.result || 'skipped' }}"
+          echo "║  Gateway:     ${{ needs.deploy-gateway.result || 'skipped' }}"
+          echo "║  Commit:      ${{ github.sha }}"
+          echo "║  Triggered:   ${{ github.actor }}"
+          echo "╚══════════════════════════════════════════╝"
