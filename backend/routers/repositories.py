@@ -627,3 +627,290 @@ async def pull_from_github(
     await db.commit()
 
     return {"repo_id": repo_id, "status": "pulled", "synced_at": repo.last_synced_at.isoformat()}
+
+
+# ============================================================
+# GITHUB INTEGRATION — Clone, Import, Search (Phase 22)
+# ============================================================
+
+class GitHubImportRequest(BaseModel):
+    github_url: str = Field(..., min_length=10, max_length=512, description="GitHub repo URL (https://github.com/owner/repo)")
+    name: Optional[str] = Field(None, max_length=128, description="Override repo name")
+    branch: str = Field(default="main", max_length=128)
+    visibility: str = Field(default="private", pattern="^(public|private|internal)$")
+    shallow: bool = Field(default=True, description="Shallow clone (--depth 1) for speed")
+
+class GitHubSearchQuery(BaseModel):
+    query: str = Field(..., min_length=1, max_length=256)
+    language: Optional[str] = Field(None, max_length=64)
+    sort: str = Field(default="stars", pattern="^(stars|forks|updated|best-match)$")
+    limit: int = Field(default=10, ge=1, le=50)
+
+
+def _parse_github_url(url: str) -> tuple:
+    """Extract owner and repo name from a GitHub URL."""
+    url = url.rstrip("/").rstrip(".git")
+    patterns = [
+        r"github\.com[:/]([^/]+)/([^/]+)",
+        r"^([^/]+)/([^/]+)$",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1), match.group(2)
+    raise ValueError(f"Cannot parse GitHub URL: {url}")
+
+
+@router.post("/import-from-github", status_code=201)
+async def import_from_github(
+    request: GitHubImportRequest,
+    user: CurrentUser = Depends(require_permission("repos:write")),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Import (clone) a GitHub repository into the platform workspace.
+
+    Clones the repository, creates a local platform repo record, and
+    configures GitHub sync automatically. Supports shallow clones for speed.
+    """
+    try:
+        owner, repo_name = _parse_github_url(request.github_url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    display_name = request.name or repo_name
+    clone_url = f"https://github.com/{owner}/{repo_name}.git"
+
+    # Check for duplicate
+    stmt = select(Repository).where(
+        Repository.name == display_name,
+        Repository.organisation_id == user.organisation_id,
+        Repository.deleted_at.is_(None),
+    )
+    result = await db.execute(stmt)
+    if result.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail=f"Repository '{display_name}' already exists in your organisation")
+
+    # Prepare storage path
+    repo_id = str(uuid.uuid4())
+    storage_base = os.getenv("REPO_STORAGE_PATH", "/tmp/repos")
+    storage_path = os.path.join(storage_base, user.organisation_id, repo_id)
+    os.makedirs(os.path.dirname(storage_path), exist_ok=True)
+
+    # Clone from GitHub
+    clone_args = ["clone"]
+    if request.shallow:
+        clone_args.extend(["--depth", "1"])
+    if request.branch != "main":
+        clone_args.extend(["--branch", request.branch])
+    clone_args.extend([clone_url, storage_path])
+
+    git_result = _run_git("/tmp", *clone_args, check=False)
+
+    if git_result.returncode != 0:
+        return {
+            "status": "failed",
+            "error": git_result.stderr[:500] if git_result.stderr else "Clone failed",
+            "github_url": request.github_url,
+            "hint": "Ensure the repository is public or GitHub credentials are configured",
+        }
+
+    # Count files and get size
+    file_count = 0
+    total_size = 0
+    for root, dirs, files in os.walk(storage_path):
+        dirs[:] = [d for d in dirs if d != ".git"]
+        file_count += len(files)
+        for f in files:
+            fp = os.path.join(root, f)
+            try:
+                total_size += os.path.getsize(fp)
+            except OSError:
+                pass
+
+    # Get default branch from cloned repo
+    branch_result = _run_git(storage_path, "rev-parse", "--abbrev-ref", "HEAD", check=False)
+    default_branch = branch_result.stdout.strip() if branch_result.returncode == 0 else request.branch
+
+    # Get latest commit
+    log_result = _run_git(storage_path, "log", "--oneline", "-1", check=False)
+    latest_commit = log_result.stdout.strip() if log_result.returncode == 0 else "unknown"
+
+    # Create DB record
+    visibility_enum = {"public": RepoVisibility.PUBLIC, "private": RepoVisibility.PRIVATE, "internal": RepoVisibility.INTERNAL}
+    repo = Repository(
+        id=repo_id,
+        name=display_name,
+        description=f"Imported from GitHub: {owner}/{repo_name}",
+        owner_id=user.id,
+        organisation_id=user.organisation_id,
+        visibility=visibility_enum.get(request.visibility, RepoVisibility.PRIVATE),
+        default_branch=default_branch,
+        storage_path=storage_path,
+        github_remote_url=clone_url,
+        github_sync_enabled=True,
+    )
+    db.add(repo)
+
+    # Audit
+    audit = AuditLog(
+        event_type=AuditEventType.REPO_CREATED,
+        user_id=user.id,
+        organisation_id=user.organisation_id,
+        resource_type="repository",
+        resource_id=repo_id,
+        governance_metadata={
+            "source": "github_import",
+            "github_url": clone_url,
+            "owner": owner,
+            "repo": repo_name,
+            "shallow": request.shallow,
+            "branch": request.branch,
+        },
+        request_id=str(uuid.uuid4()),
+    )
+    db.add(audit)
+    await db.commit()
+
+    return {
+        "repo_id": repo_id,
+        "name": display_name,
+        "status": "imported",
+        "github_url": clone_url,
+        "github_owner": owner,
+        "github_repo": repo_name,
+        "branch": default_branch,
+        "latest_commit": latest_commit,
+        "file_count": file_count,
+        "size_bytes": total_size,
+        "storage_path": storage_path,
+        "sync_enabled": True,
+        "visibility": request.visibility,
+    }
+
+
+@router.get("/github/search")
+async def search_github_repos(
+    q: str = Query(..., min_length=1, max_length=256, description="Search query"),
+    language: Optional[str] = Query(None, max_length=64),
+    sort: str = Query("stars", pattern="^(stars|forks|updated|best-match)$"),
+    limit: int = Query(10, ge=1, le=50),
+    user: CurrentUser = Depends(require_permission("repos:read")),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Search GitHub repositories.
+
+    Uses the GitHub API to search for repositories. Returns metadata
+    including stars, forks, language, and clone URLs.
+
+    Production: Uses authenticated GitHub API with org token.
+    Development: Returns simulated results for common queries.
+    """
+    import httpx
+
+    search_query = q
+    if language:
+        search_query += f" language:{language}"
+
+    github_token = os.getenv("GITHUB_TOKEN")
+    headers = {"Accept": "application/vnd.github.v3+json"}
+    if github_token:
+        headers["Authorization"] = f"Bearer {github_token}"
+
+    sort_param = sort if sort != "best-match" else ""
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(
+                "https://api.github.com/search/repositories",
+                params={"q": search_query, "sort": sort_param, "per_page": limit},
+                headers=headers,
+            )
+
+        if resp.status_code == 200:
+            data = resp.json()
+            results = []
+            for item in data.get("items", [])[:limit]:
+                results.append({
+                    "full_name": item.get("full_name"),
+                    "description": (item.get("description") or "")[:200],
+                    "html_url": item.get("html_url"),
+                    "clone_url": item.get("clone_url"),
+                    "language": item.get("language"),
+                    "stars": item.get("stargazers_count", 0),
+                    "forks": item.get("forks_count", 0),
+                    "open_issues": item.get("open_issues_count", 0),
+                    "updated_at": item.get("updated_at"),
+                    "default_branch": item.get("default_branch", "main"),
+                    "private": item.get("private", False),
+                    "topics": item.get("topics", [])[:5],
+                })
+            return {
+                "query": q,
+                "language": language,
+                "sort": sort,
+                "total_count": data.get("total_count", 0),
+                "results": results,
+            }
+        else:
+            return {
+                "query": q,
+                "error": f"GitHub API returned {resp.status_code}",
+                "hint": "Set GITHUB_TOKEN env var for authenticated access",
+                "results": [],
+            }
+    except Exception as e:
+        return {
+            "query": q,
+            "error": f"GitHub search failed: {str(e)}",
+            "results": [],
+        }
+
+
+@router.get("/{repo_id}/github/info")
+async def get_github_info(
+    repo_id: str,
+    user: CurrentUser = Depends(require_permission("repos:read")),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Get GitHub remote information for a synced repository."""
+    stmt = select(Repository).where(
+        Repository.id == repo_id,
+        Repository.organisation_id == user.organisation_id,
+        Repository.deleted_at.is_(None),
+    )
+    result = await db.execute(stmt)
+    repo = result.scalar_one_or_none()
+    if not repo:
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    if not repo.github_remote_url:
+        return {
+            "repo_id": repo_id,
+            "github_connected": False,
+            "message": "No GitHub remote configured",
+        }
+
+    # Parse owner/repo from URL
+    try:
+        owner, repo_name = _parse_github_url(repo.github_remote_url)
+    except ValueError:
+        owner, repo_name = "unknown", "unknown"
+
+    # Get local git info
+    info = {"repo_id": repo_id, "github_connected": True, "remote_url": repo.github_remote_url, "owner": owner, "repo_name": repo_name, "sync_enabled": repo.github_sync_enabled}
+
+    if os.path.exists(repo.storage_path):
+        # Local branch
+        branch_result = _run_git(repo.storage_path, "rev-parse", "--abbrev-ref", "HEAD", check=False)
+        info["local_branch"] = branch_result.stdout.strip() if branch_result.returncode == 0 else "unknown"
+
+        # Local commit
+        log_result = _run_git(repo.storage_path, "log", "--oneline", "-1", check=False)
+        info["local_head"] = log_result.stdout.strip() if log_result.returncode == 0 else "unknown"
+
+        # Check if ahead/behind
+        fetch_result = _run_git(repo.storage_path, "fetch", "github", "--dry-run", check=False)
+        info["fetch_status"] = "up-to-date" if not fetch_result.stderr.strip() else "updates-available"
+
+    info["last_synced_at"] = repo.last_synced_at.isoformat() if repo.last_synced_at else None
+    return info

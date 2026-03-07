@@ -286,6 +286,7 @@ from routers import attachments, accessibility
 
 # Ecosystem Branded Aliases — Lille SC, Lunascene, SolarScene
 from routers import lille_sc, lunascene, solarscene
+from routers import admin_cli, sandboxes
 
 app.include_router(auth.router)
 app.include_router(ai.router)
@@ -422,6 +423,10 @@ app.include_router(accessibility.router)     # Accessibility — Takeover mode &
 app.include_router(lille_sc.router)          # Lille SC — Sync Centre (branded sync.py)
 app.include_router(lunascene.router)         # Lunascene — The Artifactory (branded artifacts.py)
 app.include_router(solarscene.router)        # SolarScene — Search & Discovery (branded search.py)
+
+# ── Phase 22: Platform Operations & Intelligence Layer ──────────────
+app.include_router(admin_cli.router)           # Admin CLI — Sandboxed terminal & command execution
+app.include_router(sandboxes.router)           # Sandboxes & VMs — Isolated execution environments
 
 
 # ============================================================
