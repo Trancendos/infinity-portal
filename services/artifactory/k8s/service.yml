@@ -1,0 +1,125 @@
+# ═══════════════════════════════════════════════════════════════════════
+# THE ARTIFACTORY — Kubernetes Service & Ingress
+# Part of the Trancendos Ecosystem
+# ═══════════════════════════════════════════════════════════════════════
+apiVersion: v1
+kind: Service
+metadata:
+  name: the-artifactory
+  namespace: trancendos
+  labels:
+    app: the-artifactory
+    app.kubernetes.io/name: the-artifactory
+    app.kubernetes.io/component: artifact-registry
+    app.kubernetes.io/part-of: trancendos-ecosystem
+spec:
+  type: ClusterIP
+  selector:
+    app: the-artifactory
+  ports:
+    - name: http
+      port: 3020
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: the-artifactory
+  namespace: trancendos
+  labels:
+    app: the-artifactory
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: the-artifactory
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: the-artifactory
+  namespace: trancendos
+  labels:
+    app: the-artifactory
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: the-artifactory
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: the-artifactory
+  namespace: trancendos
+  labels:
+    app: the-artifactory
+    app.kubernetes.io/name: the-artifactory
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: the-artifactory
+  namespace: trancendos
+  labels:
+    app: the-artifactory
+spec:
+  podSelector:
+    matchLabels:
+      app: the-artifactory
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: trancendos-ecosystem
+        - podSelector: {}
+      ports:
+        - port: 3020
+          protocol: TCP
+  egress:
+    - to: []
+      ports:
+        - port: 5432
+          protocol: TCP
+        - port: 6379
+          protocol: TCP
+        - port: 7700
+          protocol: TCP
+        - port: 9000
+          protocol: TCP
+        - port: 443
+          protocol: TCP
+        - port: 80
+          protocol: TCP

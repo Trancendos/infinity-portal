@@ -1,0 +1,11 @@
+# ═══════════════════════════════════════════════════════════════════════
+# THE ARTIFACTORY — Kubernetes Namespace
+# Part of the Trancendos Ecosystem
+# ═══════════════════════════════════════════════════════════════════════
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trancendos
+  labels:
+    app.kubernetes.io/part-of: trancendos-ecosystem
+    app.kubernetes.io/managed-by: kubectl

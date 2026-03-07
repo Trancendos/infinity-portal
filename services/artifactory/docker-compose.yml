@@ -1,0 +1,222 @@
+# ═══════════════════════════════════════════════════════════════════════
+# THE ARTIFACTORY — Local Development Environment
+# Part of the Trancendos Ecosystem
+#
+# Provides all dependencies for local development:
+# - PostgreSQL (database)
+# - Redis (cache, pub/sub, rate limiting)
+# - Meilisearch (full-text search)
+# - MinIO (S3-compatible storage, simulates Cloudflare R2)
+# - Keycloak (identity & access management)
+# - the-artifactory (this service)
+#
+# Usage:
+#   docker compose up -d          # Start all services
+#   docker compose up -d --build  # Rebuild and start
+#   docker compose logs -f app    # Follow app logs
+#   docker compose down -v        # Stop and remove volumes
+# ═══════════════════════════════════════════════════════════════════════
+
+version: "3.9"
+
+services:
+  # ── The Artifactory ───────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: the-artifactory
+    ports:
+      - "3020:3020"
+    environment:
+      NODE_ENV: development
+      PORT: "3020"
+      LOG_LEVEL: debug
+      DATABASE_URL: postgres://artifactory:artifactory_dev@postgres:5432/artifactory
+      REDIS_URL: redis://redis:6379
+      R2_ENDPOINT: http://minio:9000
+      R2_ACCESS_KEY_ID: minioadmin
+      R2_SECRET_ACCESS_KEY: minioadmin
+      R2_BUCKET_NAME: artifactory
+      R2_REGION: us-east-1
+      R2_PUBLIC_URL: http://localhost:9000/artifactory
+      MEILISEARCH_URL: http://meilisearch:7700
+      MEILISEARCH_API_KEY: dev-master-key
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: trancendos
+      KEYCLOAK_CLIENT_ID: the-artifactory
+      NEXUS_URL: http://host.docker.internal:3014
+      AGORA_URL: http://host.docker.internal:3017
+      OBSERVATORY_URL: http://host.docker.internal:3012
+      LIGHTHOUSE_URL: http://host.docker.internal:3016
+      TREASURY_URL: http://host.docker.internal:3018
+      ICEBOX_URL: http://host.docker.internal:3019
+      CORNELIUS_URL: http://host.docker.internal:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+    networks:
+      - trancendos-mesh
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3020/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ── PostgreSQL ────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: artifactory-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: artifactory
+      POSTGRES_USER: artifactory
+      POSTGRES_PASSWORD: artifactory_dev
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - trancendos-mesh
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U artifactory -d artifactory"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ─────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: artifactory-redis
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+        --maxmemory 256mb
+        --maxmemory-policy allkeys-lru
+        --appendonly yes
+        --appendfsync everysec
+    volumes:
+      - redis_data:/data
+    networks:
+      - trancendos-mesh
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── MinIO (S3-compatible, simulates Cloudflare R2) ────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: artifactory-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - trancendos-mesh
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── MinIO Bootstrap (creates default bucket) ──────────────────────
+  minio-init:
+    image: minio/mc:latest
+    container_name: artifactory-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 minioadmin minioadmin;
+        mc mb local/artifactory --ignore-existing;
+        mc anonymous set download local/artifactory;
+        echo 'MinIO bucket initialized';
+      "
+    networks:
+      - trancendos-mesh
+
+  # ── Meilisearch ───────────────────────────────────────────────────
+  meilisearch:
+    image: getmeili/meilisearch:v1.6
+    container_name: artifactory-meilisearch
+    ports:
+      - "7700:7700"
+    environment:
+      MEILI_MASTER_KEY: dev-master-key
+      MEILI_ENV: development
+      MEILI_NO_ANALYTICS: "true"
+    volumes:
+      - meilisearch_data:/meili_data
+    networks:
+      - trancendos-mesh
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Keycloak ──────────────────────────────────────────────────────
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: artifactory-keycloak
+    ports:
+      - "8080:8080"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/artifactory
+      KC_DB_USERNAME: artifactory
+      KC_DB_PASSWORD: artifactory_dev
+      KC_HEALTH_ENABLED: "true"
+    command: start-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - trancendos-mesh
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+# ── Volumes ─────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+  meilisearch_data:
+    driver: local
+
+# ── Networks ────────────────────────────────────────────────────────
+networks:
+  trancendos-mesh:
+    name: trancendos-mesh
+    driver: bridge

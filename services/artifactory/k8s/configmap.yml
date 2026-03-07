@@ -1,0 +1,51 @@
+# ═══════════════════════════════════════════════════════════════════════
+# THE ARTIFACTORY — Kubernetes ConfigMap & Secrets Template
+# Part of the Trancendos Ecosystem
+#
+# NOTE: Secrets template uses placeholder values.
+# In production, use sealed-secrets, external-secrets, or vault.
+# ═══════════════════════════════════════════════════════════════════════
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: the-artifactory-config
+  namespace: trancendos
+  labels:
+    app: the-artifactory
+    app.kubernetes.io/name: the-artifactory
+data:
+  NODE_ENV: "production"
+  PORT: "3020"
+  LOG_LEVEL: "info"
+  SERVICE_NAME: "the-artifactory"
+  R2_REGION: "auto"
+  R2_BUCKET_NAME: "trancendos-artifactory"
+  MEILISEARCH_URL: "http://meilisearch.trancendos.svc.cluster.local:7700"
+  KEYCLOAK_URL: "http://keycloak.trancendos.svc.cluster.local:8080"
+  KEYCLOAK_REALM: "trancendos"
+  KEYCLOAK_CLIENT_ID: "the-artifactory"
+  NEXUS_URL: "http://the-nexus.trancendos.svc.cluster.local:3014"
+  AGORA_URL: "http://the-agora.trancendos.svc.cluster.local:3017"
+  OBSERVATORY_URL: "http://the-observatory.trancendos.svc.cluster.local:3012"
+  LIGHTHOUSE_URL: "http://the-lighthouse.trancendos.svc.cluster.local:3016"
+  TREASURY_URL: "http://the-treasury.trancendos.svc.cluster.local:3018"
+  ICEBOX_URL: "http://the-ice-box.trancendos.svc.cluster.local:3019"
+  CORNELIUS_URL: "http://cornelius-ai.trancendos.svc.cluster.local:3000"
+---
+# TEMPLATE ONLY — Replace with sealed-secrets or external-secrets in production
+apiVersion: v1
+kind: Secret
+metadata:
+  name: the-artifactory-secrets
+  namespace: trancendos
+  labels:
+    app: the-artifactory
+    app.kubernetes.io/name: the-artifactory
+type: Opaque
+stringData:
+  DATABASE_URL: "postgres://artifactory:CHANGE_ME@postgres.trancendos.svc.cluster.local:5432/artifactory?sslmode=require"
+  REDIS_URL: "redis://redis.trancendos.svc.cluster.local:6379"
+  R2_ACCOUNT_ID: "CHANGE_ME"
+  R2_ACCESS_KEY_ID: "CHANGE_ME"
+  R2_SECRET_ACCESS_KEY: "CHANGE_ME"
+  MEILISEARCH_API_KEY: "CHANGE_ME"
