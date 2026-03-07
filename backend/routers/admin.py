@@ -196,11 +196,11 @@ async def update_platform_config(
         "before": {k: before.get(k) for k in patch.updates},
         "after": {k: _platform_config.get(k) for k in patch.updates},
         "reason": patch.reason,
-        "changed_by": current_user.get("sub", "anonymous"),
+        "changed_by": getattr(current_user, "id", "anonymous"),
         "timestamp": _platform_config["updated_at"],
     })
 
-    _log_audit("config_updated", current_user.get("sub", "anonymous"), {
+    _log_audit("config_updated", getattr(current_user, "id", "anonymous"), {
         "keys_updated": list(patch.updates.keys()), "reason": patch.reason,
     })
 
@@ -257,7 +257,7 @@ async def suspend_user(
     user["suspended_at"] = datetime.now(timezone.utc).isoformat()
     user["suspension_reason"] = reason.get("reason", "policy_violation")
 
-    _log_audit("user_suspended", current_user.get("sub", "anonymous"), {
+    _log_audit("user_suspended", getattr(current_user, "id", "anonymous"), {
         "user_id": user_id, "reason": reason.get("reason"),
     })
 
@@ -283,7 +283,7 @@ async def reinstate_user(
     user.pop("suspended_at", None)
     user.pop("suspension_reason", None)
 
-    _log_audit("user_reinstated", current_user.get("sub", "anonymous"), {"user_id": user_id})
+    _log_audit("user_reinstated", getattr(current_user, "id", "anonymous"), {"user_id": user_id})
     logger.info(f"User {user_id} reinstated")
     return {"reinstated": True, "user_id": user_id}
 
@@ -362,7 +362,7 @@ async def set_maintenance_mode(
         _maintenance_mode["ended_at"] = now.isoformat()
         action = "maintenance_disabled"
 
-    _log_audit(action, current_user.get("sub", "anonymous"), {
+    _log_audit(action, getattr(current_user, "id", "anonymous"), {
         "reason": request.reason, "duration_minutes": request.estimated_duration_minutes,
     })
 

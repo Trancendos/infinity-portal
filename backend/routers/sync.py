@@ -42,7 +42,7 @@ class ConflictResolution(BaseModel):
 
 class ReplicationConfig(BaseModel):
     source_node: str = Field(..., min_length=1, max_length=256)
-    target_nodes: List[str] = Field(..., min_items=1, max_items=20)
+    target_nodes: List[str] = Field(..., min_length=1, max_length=20)
     mode: str = Field(default="async", pattern="^(sync|async|semi_sync)$")
     interval_seconds: int = Field(default=60, ge=10, le=86400)
     collections: List[str] = Field(default_factory=lambda: ["all"])
@@ -141,7 +141,7 @@ async def trigger_sync(
         "duration_ms": duration_ms,
         "started_at": now.isoformat(),
         "completed_at": (now + timedelta(milliseconds=duration_ms)).isoformat(),
-        "triggered_by": current_user.get("sub", "anonymous"),
+        "triggered_by": getattr(current_user, "id", "anonymous"),
         "checksum": _hash(f"{job_id}:{records_synced}:{now.isoformat()}"),
     }
 
@@ -254,7 +254,7 @@ async def resolve_conflict(
     conflict["status"] = "resolved"
     conflict["resolution"] = resolution.resolution
     conflict["resolved_at"] = now.isoformat()
-    conflict["resolved_by"] = current_user.get("sub", "anonymous")
+    conflict["resolved_by"] = getattr(current_user, "id", "anonymous")
 
     if resolution.resolution == "merge" and resolution.merged_data:
         conflict["merged_data"] = resolution.merged_data
@@ -303,7 +303,7 @@ async def create_replication(
         "last_sync": None,
         "lag_ms": 0,
         "created_at": now.isoformat(),
-        "created_by": current_user.get("sub", "anonymous"),
+        "created_by": getattr(current_user, "id", "anonymous"),
     }
 
     _replication_configs[repl_id] = config

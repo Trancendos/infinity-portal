@@ -194,7 +194,7 @@ async def create_repo(
         "open_issues": 0,
         "last_commit": now.isoformat(),
         "created_at": now.isoformat(),
-        "created_by": current_user.get("sub", "anonymous"),
+        "created_by": getattr(current_user, "id", "anonymous"),
         "features": request.features,
         "ci_status": "none",
         "branch_protection": {
@@ -345,7 +345,7 @@ async def merge_pull_request(
     now = datetime.now(timezone.utc)
     pr["status"] = "merged"
     pr["merged_at"] = now.isoformat()
-    pr["merged_by"] = current_user.get("sub", "anonymous")
+    pr["merged_by"] = getattr(current_user, "id", "anonymous")
     pr["merge_strategy"] = merge_strategy
     pr["merge_commit"] = _hash(f"{pr_id}:{now.isoformat()}")
 
@@ -380,7 +380,7 @@ async def push_to_repo(
         "branch": request.branch,
         "message": request.message,
         "files_changed": len(request.files),
-        "pushed_by": current_user.get("sub", "anonymous"),
+        "pushed_by": getattr(current_user, "id", "anonymous"),
         "pushed_at": now.isoformat(),
     }
 
@@ -490,7 +490,7 @@ async def run_pipeline(
         "status": "passed" if all_passed else "failed",
         "stages": stages,
         "total_duration_seconds": total_duration,
-        "triggered_by": current_user.get("sub", "anonymous"),
+        "triggered_by": getattr(current_user, "id", "anonymous"),
         "started_at": now.isoformat(),
         "completed_at": (now + timedelta(seconds=total_duration)).isoformat(),
         "parameters": request.parameters,

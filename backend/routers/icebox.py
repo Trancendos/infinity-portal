@@ -196,7 +196,7 @@ async def create_archive(
         "status": "frozen",
         "tags": request.tags,
         "archived_at": now.isoformat(),
-        "archived_by": current_user.get("sub", "anonymous"),
+        "archived_by": getattr(current_user, "id", "anonymous"),
         "restore_count": 0,
         "policy_id": matching_policy,
         "metadata": request.metadata,
@@ -290,7 +290,7 @@ async def restore_archive(
         "status": "completed" if integrity_ok else "failed",
         "failure_reason": None if integrity_ok else "Integrity verification failed",
         "restored_at": now.isoformat(),
-        "restored_by": current_user.get("sub", "anonymous"),
+        "restored_by": getattr(current_user, "id", "anonymous"),
         "duration_ms": 1200,
     }
 
@@ -330,7 +330,7 @@ async def delete_archive(
 
     archive["status"] = "deleted"
     archive["deleted_at"] = datetime.now(timezone.utc).isoformat()
-    archive["deleted_by"] = current_user.get("sub", "anonymous")
+    archive["deleted_by"] = getattr(current_user, "id", "anonymous")
     _metrics["total_deleted"] += 1
 
     logger.info(f"Archive {archive_id} deleted {'(forced)' if force else ''}")
@@ -381,7 +381,7 @@ async def create_retention_policy(
         "gdpr_compliant": request.gdpr_compliant,
         "description": request.description,
         "created_at": now.isoformat(),
-        "created_by": current_user.get("sub", "anonymous"),
+        "created_by": getattr(current_user, "id", "anonymous"),
         "status": "active",
     }
 

@@ -38,7 +38,7 @@ class SearchRequest(BaseModel):
     offset: int = Field(default=0, ge=0)
 
 class IndexRequest(BaseModel):
-    documents: List[Dict[str, Any]] = Field(..., min_items=1, max_items=200)
+    documents: List[Dict[str, Any]] = Field(..., min_length=1, max_length=200)
     index_name: str = Field(default="default", max_length=128)
 
 # ============================================================

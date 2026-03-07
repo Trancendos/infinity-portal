@@ -329,7 +329,7 @@ async def generate_article(
         "summary": _generate_summary(content),
         "word_count": word_count,
         "status": "draft",
-        "author": current_user.get("sub", "anonymous"),
+        "author": getattr(current_user, "id", "anonymous"),
         "created_at": now.isoformat(),
         "updated_at": now.isoformat(),
         "views": 0,
@@ -347,6 +347,19 @@ async def generate_article(
     # Update topic count
     if request.topic in _topics:
         _topics[request.topic]["article_count"] = _topics[request.topic].get("article_count", 0) + 1
+
+    # Publish to Kernel Event Bus
+    try:
+        from kernel_event_bus import KernelEventBus, KernelEvent, EventLane
+        bus = await KernelEventBus.get_instance()
+        await bus.publish(KernelEvent(
+            topic="library.article.generated",
+            payload={"article_id": article_id, "title": request.title, "topic": request.topic},
+            source="library",
+            lane=EventLane.DATA,
+        ))
+    except Exception:
+        pass  # Non-fatal
 
     logger.info(f"Article generated: {article_id} — {request.title}")
     return article

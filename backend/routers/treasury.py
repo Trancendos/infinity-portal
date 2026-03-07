@@ -482,7 +482,7 @@ async def process_payment(
         "recipient": request.recipient,
         "payment_method": request.payment_method,
         "status": "completed",
-        "initiated_by": current_user.get("sub", "anonymous"),
+        "initiated_by": getattr(current_user, "id", "anonymous"),
         "created_at": now.isoformat(),
         "completed_at": now.isoformat(),
         "transaction_hash": hashlib.sha256(f"{payment_id}:{request.amount}:{now.isoformat()}".encode()).hexdigest()[:24],

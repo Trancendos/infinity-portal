@@ -81,7 +81,6 @@ def _detect_architecture() -> dict:
 
 def _detect_resources() -> ResourceProfile:
     """Detect available hardware resources."""
-    import psutil if_available = True
     try:
         import psutil
         cpu_cores = psutil.cpu_count(logical=True) or os.cpu_count() or 1

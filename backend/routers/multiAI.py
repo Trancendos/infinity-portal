@@ -39,7 +39,7 @@ class AgentMessage(BaseModel):
 
 class CollaborationRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=256)
-    agents: List[str] = Field(..., min_items=2, max_items=20)
+    agents: List[str] = Field(..., min_length=2, max_length=20)
     objective: str = Field(..., min_length=1, max_length=5000)
     strategy: str = Field(default="round_robin", pattern="^(round_robin|parallel|pipeline|debate)$")
     max_rounds: int = Field(default=10, ge=1, le=50)
@@ -172,6 +172,21 @@ async def send_message(
     _metrics["messages_sent"] += 1
     _metrics["messages_delivered"] += 1
 
+    # Publish to Kernel Event Bus for cross-lane visibility
+    try:
+        from kernel_event_bus import KernelEventBus, KernelEvent, EventLane, EventPriority
+        bus = await KernelEventBus.get_instance()
+        await bus.publish(KernelEvent(
+            topic=f"multiai.message.{message.message_type}",
+            payload={"message_id": msg_id, "from": message.from_agent, "to": message.to_agent},
+            source="multiAI",
+            lane=EventLane.AI,
+            priority=EventPriority.HIGH if message.priority == "critical" else EventPriority.NORMAL,
+            correlation_id=correlation,
+        ))
+    except Exception:
+        pass  # Non-fatal — bus may not be running in tests
+
     logger.info(f"Message {msg_id}: {message.from_agent} → {message.to_agent} [{message.message_type}]")
     return msg_record
 
@@ -272,13 +287,26 @@ async def start_collaboration(
         "rounds": [{"round": 1, "results": round_results}],
         "context": request.context,
         "created_at": now.isoformat(),
-        "created_by": current_user.get("sub", "anonymous"),
+        "created_by": getattr(current_user, "id", "anonymous"),
         "completed_at": None,
         "final_output": None,
     }
 
     _collaborations[session_id] = session_record
     _metrics["collaborations_started"] += 1
+
+    # Publish collaboration event to Kernel Event Bus
+    try:
+        from kernel_event_bus import KernelEventBus, KernelEvent, EventLane
+        bus = await KernelEventBus.get_instance()
+        await bus.publish(KernelEvent(
+            topic="multiai.collaboration.started",
+            payload={"session_id": session_id, "agents": request.agents, "strategy": request.strategy},
+            source="multiAI",
+            lane=EventLane.AI,
+        ))
+    except Exception:
+        pass  # Non-fatal
 
     logger.info(f"Collaboration {session_id}: {len(request.agents)} agents, strategy={request.strategy}")
     return session_record

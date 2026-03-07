@@ -42,7 +42,7 @@ class AppDeployRequest(BaseModel):
     auto_rollback: bool = True
 
 class MailboxProcessRequest(BaseModel):
-    messages: List[Dict[str, Any]] = Field(..., min_items=1, max_items=50)
+    messages: List[Dict[str, Any]] = Field(..., min_length=1, max_length=50)
     auto_categorise: bool = True
     auto_respond: bool = False
 
@@ -151,7 +151,7 @@ async def create_app(
         "scaffold_files": scaffold.get(request.framework, []),
         "status": "created",
         "version": "0.1.0",
-        "owner": current_user.get("sub", "anonymous"),
+        "owner": getattr(current_user, "id", "anonymous"),
         "created_at": now.isoformat(),
         "updated_at": now.isoformat(),
         "deployments": [],
@@ -227,7 +227,7 @@ async def deploy_app(
         "version": version,
         "status": "deployed",
         "auto_rollback": request.auto_rollback,
-        "deployed_by": current_user.get("sub", "anonymous"),
+        "deployed_by": getattr(current_user, "id", "anonymous"),
         "deployed_at": now.isoformat(),
         "url": f"https://{app['name']}.{'preview.' if request.environment == 'preview' else ''}"
                f"{'staging.' if request.environment == 'staging' else ''}arcadia.trancendos.com",
@@ -400,7 +400,7 @@ async def create_thread(
         "body": request.body,
         "category": request.category,
         "tags": request.tags,
-        "author": current_user.get("sub", "anonymous"),
+        "author": getattr(current_user, "id", "anonymous"),
         "status": "open",
         "replies": [],
         "reply_count": 0,
@@ -434,7 +434,7 @@ async def reply_to_thread(
     reply = {
         "reply_id": reply_id,
         "body": request.body,
-        "author": current_user.get("sub", "anonymous"),
+        "author": getattr(current_user, "id", "anonymous"),
         "created_at": now.isoformat(),
     }
 
@@ -500,7 +500,7 @@ async def create_listing(
         "category": request.category,
         "description": request.description or app.get("description", ""),
         "screenshots": request.screenshots,
-        "seller": current_user.get("sub", "anonymous"),
+        "seller": getattr(current_user, "id", "anonymous"),
         "status": "active",
         "downloads": 0,
         "rating": None,

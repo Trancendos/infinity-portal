@@ -184,6 +184,24 @@ async def scan_threats(
     kernel_events = generate_kernel_events(alerts)
     remediation_commands = generate_remediation_commands(alerts)
 
+    # Publish kernel events to the Kernel Event Bus
+    try:
+        from kernel_event_bus import KernelEventBus, KernelEvent, EventLane, EventPriority
+        bus = await KernelEventBus.get_instance()
+        for ke in kernel_events:
+            priority = EventPriority.HIGH if ke.get("routing", {}).get("priority") == "high" else EventPriority.NORMAL
+            await bus.publish(KernelEvent(
+                topic=ke.get("event_type", "cryptex.vulnerability.unknown"),
+                payload=ke.get("payload", {}),
+                source=ke.get("source", "the_cryptex"),
+                lane=EventLane.AI,
+                priority=priority,
+                metadata={"routing": ke.get("routing", {})},
+            ))
+        logger.info("Published %d kernel events to event bus", len(kernel_events))
+    except Exception as bus_err:
+        logger.warning("Kernel Event Bus publish failed (non-fatal): %s", str(bus_err))
+
     # Cache results
     _vulnerability_cache["alerts"] = [a.to_dict() for a in alerts]
     _vulnerability_cache["lane_report"] = lane_report

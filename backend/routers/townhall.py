@@ -297,7 +297,7 @@ async def list_policies(
 @router.post("/policies", status_code=201)
 async def create_policy(
     data: PolicyCreate,
-    user: User = Depends(require_min_role(UserRole.ADMIN)),
+    user: User = Depends(require_min_role(UserRole.ORG_ADMIN)),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Create a new governance policy."""
@@ -367,7 +367,7 @@ async def get_policy(
 async def update_policy(
     policy_id: str,
     data: PolicyUpdate,
-    user: User = Depends(require_min_role(UserRole.ADMIN)),
+    user: User = Depends(require_min_role(UserRole.ORG_ADMIN)),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Update a policy (creates new version)."""
@@ -443,7 +443,7 @@ async def list_procedures(
 @router.post("/procedures", status_code=201)
 async def create_procedure(
     data: ProcedureCreate,
-    user: User = Depends(require_min_role(UserRole.ADMIN)),
+    user: User = Depends(require_min_role(UserRole.ORG_ADMIN)),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Create a new operational procedure."""
@@ -504,7 +504,7 @@ async def list_board_meetings(
 @router.post("/boardroom/meetings", status_code=201)
 async def create_board_meeting(
     data: BoardMeetingCreate,
-    user: User = Depends(require_min_role(UserRole.ADMIN)),
+    user: User = Depends(require_min_role(UserRole.ORG_ADMIN)),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Schedule a new board meeting."""
@@ -532,7 +532,7 @@ async def create_board_meeting(
 async def update_board_meeting(
     meeting_id: str,
     data: BoardMeetingUpdate,
-    user: User = Depends(require_min_role(UserRole.ADMIN)),
+    user: User = Depends(require_min_role(UserRole.ORG_ADMIN)),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Update meeting details (add minutes, mark quorum, etc.)."""
@@ -563,7 +563,7 @@ async def update_board_meeting(
 @router.post("/boardroom/resolutions", status_code=201)
 async def create_resolution(
     data: ResolutionCreate,
-    user: User = Depends(require_min_role(UserRole.ADMIN)),
+    user: User = Depends(require_min_role(UserRole.ORG_ADMIN)),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Create a board resolution for voting."""
@@ -592,7 +592,7 @@ async def create_resolution(
 async def vote_on_resolution(
     resolution_id: str,
     data: ResolutionVote,
-    user: User = Depends(require_min_role(UserRole.ADMIN)),
+    user: User = Depends(require_min_role(UserRole.ORG_ADMIN)),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Cast a vote on a board resolution."""
@@ -668,7 +668,7 @@ async def list_ip_records(
 @router.post("/ip", status_code=201)
 async def register_ip(
     data: IPRecordCreate,
-    user: User = Depends(require_min_role(UserRole.ADMIN)),
+    user: User = Depends(require_min_role(UserRole.ORG_ADMIN)),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Register a new IP asset."""
@@ -734,7 +734,7 @@ async def list_contracts(
 @router.post("/legal/contracts", status_code=201)
 async def create_contract(
     data: LegalContractCreate,
-    user: User = Depends(require_min_role(UserRole.ADMIN)),
+    user: User = Depends(require_min_role(UserRole.ORG_ADMIN)),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Register a new legal contract."""

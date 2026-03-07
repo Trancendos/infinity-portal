@@ -1,8 +1,15 @@
 # docker-compose.yml — Full Infinity OS stack
+# Usage:
+#   Development:  docker compose up -d
+#   With migrate:  docker compose --profile migrate up -d
+#   With edge DB:  docker compose --profile edge up -d
+#   Full stack:    docker compose --profile migrate --profile edge --profile tools up -d
 version: "3.9"
 
 services:
-  # PostgreSQL Database
+  # ─────────────────────────────────────────────────────────────
+  # PostgreSQL 16 — Primary relational database
+  # ─────────────────────────────────────────────────────────────
   db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -20,8 +27,13 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    networks:
+      - infinity-net
 
-  # Redis (Valkey) — Caching, rate limiting, sessions
+  # ─────────────────────────────────────────────────────────────
+  # Valkey 8 (Redis-compatible) — Caching, rate limiting, sessions,
+  # Kernel Event Bus persistence, pub/sub backbone
+  # ─────────────────────────────────────────────────────────────
   redis:
     image: valkey/valkey:8-alpine
     restart: unless-stopped
@@ -29,13 +41,92 @@ services:
       - "6379:6379"
     volumes:
       - redisdata:/data
+    command: >
+      valkey-server
+        --appendonly yes
+        --maxmemory 256mb
+        --maxmemory-policy allkeys-lru
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
+    networks:
+      - infinity-net
 
-  # Backend API
+  # ─────────────────────────────────────────────────────────────
+  # LibSQL Server (Turso-compatible) — Edge database for
+  # read-heavy queries, offline-first sync, Hive Lane caching
+  # Profile: edge (opt-in for edge DB development)
+  # ─────────────────────────────────────────────────────────────
+  libsql:
+    image: ghcr.io/tursodatabase/libsql-server:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"   # HTTP API
+      - "5001:5001"   # gRPC replication
+    environment:
+      SQLD_NODE: primary
+      SQLD_HTTP_LISTEN_ADDR: 0.0.0.0:8080
+      SQLD_GRPC_LISTEN_ADDR: 0.0.0.0:5001
+      SQLD_AUTH_JWT_KEY: ${LIBSQL_AUTH_TOKEN:-infinity-edge-dev-token-2026}
+    volumes:
+      - libsqldata:/var/lib/sqld
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - edge
+    networks:
+      - infinity-net
+
+  # ─────────────────────────────────────────────────────────────
+  # MinIO — S3-compatible object storage for files, builds,
+  # artifacts, C2PA signed content
+  # Profile: tools (opt-in for S3 development)
+  # ─────────────────────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Console UI
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-infinity}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-infinity_dev_2026}
+    command: server /data --console-address ":9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - tools
+    networks:
+      - infinity-net
+
+  # ─────────────────────────────────────────────────────────────
+  # Mailpit — Local email testing (SMTP capture + web UI)
+  # Profile: tools (opt-in for email development)
+  # ─────────────────────────────────────────────────────────────
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    profiles:
+      - tools
+    networks:
+      - infinity-net
+
+  # ─────────────────────────────────────────────────────────────
+  # Backend API — Infinity OS FastAPI application
+  # ─────────────────────────────────────────────────────────────
   api:
     build:
       context: .
@@ -43,23 +134,48 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
+      # Core infrastructure (override .env for container networking)
       DATABASE_URL: postgresql+asyncpg://infinity:${DB_PASSWORD:-infinity_dev_2026}@db:5432/infinity_os
       REDIS_URL: redis://redis:6379/0
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-in-production}
-      CORS_ORIGINS: http://localhost:3000,http://localhost:5173,http://localhost:8080
       ENVIRONMENT: ${ENVIRONMENT:-development}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Authentication
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-in-production}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      # CORS
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:8080}
+      # Storage paths (container-internal)
       FILE_STORAGE_ROOT: /data/files
       GIT_STORAGE_ROOT: /data/repos
       BUILD_OUTPUT_ROOT: /data/builds
-      # LLM Providers (set at least one)
+      # LLM Providers
       LLM_PROVIDER: ${LLM_PROVIDER:-}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       HF_API_KEY: ${HF_API_KEY:-}
       LOCAL_LLM_URL: ${LOCAL_LLM_URL:-http://host.docker.internal:11434/v1}
+      # Edge Database (LibSQL/Turso)
+      LIBSQL_URL: ${LIBSQL_URL:-http://libsql:8080}
+      LIBSQL_AUTH_TOKEN: ${LIBSQL_AUTH_TOKEN:-infinity-edge-dev-token-2026}
+      LIBSQL_SYNC_INTERVAL: ${LIBSQL_SYNC_INTERVAL:-30}
+      # S3 Object Storage (MinIO)
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-infinity}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-infinity_dev_2026}
+      S3_BUCKET_FILES: ${S3_BUCKET_FILES:-infinity-files}
+      S3_BUCKET_BUILDS: ${S3_BUCKET_BUILDS:-infinity-builds}
+      S3_BUCKET_ARTIFACTS: ${S3_BUCKET_ARTIFACTS:-infinity-artifacts}
+      # Email (Mailpit in dev)
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@infinity-os.dev}
       # C2PA Content Provenance
       C2PA_ENABLED: ${C2PA_ENABLED:-false}
       C2PA_CERT_PATH: ${C2PA_CERT_PATH:-}
@@ -69,6 +185,13 @@ services:
       # OpenTelemetry
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-infinity-os-api}
+      # Kernel Event Bus
+      EVENT_BUS_MAX_HISTORY: ${EVENT_BUS_MAX_HISTORY:-10000}
+      EVENT_BUS_MAX_DEAD_LETTER: ${EVENT_BUS_MAX_DEAD_LETTER:-1000}
+      EVENT_BUS_RETRY_LIMIT: ${EVENT_BUS_RETRY_LIMIT:-3}
+      # GitHub Integration
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_ORG: ${GITHUB_ORG:-Trancendos}
     volumes:
       - filedata:/data/files
       - repodata:/data/repos
@@ -83,8 +206,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+    networks:
+      - infinity-net
 
+  # ─────────────────────────────────────────────────────────────
   # Frontend Shell (development)
+  # ─────────────────────────────────────────────────────────────
   shell:
     image: node:20-alpine
     working_dir: /app
@@ -99,8 +226,13 @@ services:
       - shell_modules:/app/node_modules
     depends_on:
       - api
+    networks:
+      - infinity-net
 
-  # Alembic migrations (run once)
+  # ─────────────────────────────────────────────────────────────
+  # Alembic migrations (run once, then exit)
+  # Profile: migrate (opt-in)
+  # ─────────────────────────────────────────────────────────────
   migrate:
     build:
       context: .
@@ -113,11 +245,25 @@ services:
         condition: service_healthy
     profiles:
       - migrate
+    networks:
+      - infinity-net
 
+# ─────────────────────────────────────────────────────────────
+# Named volumes
+# ─────────────────────────────────────────────────────────────
 volumes:
   pgdata:
   redisdata:
+  libsqldata:
+  miniodata:
   filedata:
   repodata:
   builddata:
   shell_modules:
+
+# ─────────────────────────────────────────────────────────────
+# Network
+# ─────────────────────────────────────────────────────────────
+networks:
+  infinity-net:
+    driver: bridge

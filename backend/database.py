@@ -9,16 +9,22 @@ DATABASE_URL = os.getenv(
     "postgresql+asyncpg://infinity_os:secure_password@localhost/infinity_os"
 )
 
+# Build engine kwargs — pool settings only apply to poolable backends (not SQLite)
+_engine_kwargs = {
+    "echo": os.getenv("SQL_ECHO", "false").lower() == "true",
+    "future": True,
+}
+
+if "sqlite" not in DATABASE_URL:
+    _engine_kwargs.update({
+        "pool_size": 20,
+        "max_overflow": 0,
+        "pool_pre_ping": True,
+        "pool_recycle": 3600,
+    })
+
 # Create async engine with connection pooling
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=os.getenv("SQL_ECHO", "false").lower() == "true",
-    future=True,
-    pool_size=20,
-    max_overflow=0,
-    pool_pre_ping=True,
-    pool_recycle=3600,
-)
+engine = create_async_engine(DATABASE_URL, **_engine_kwargs)
 
 # Create async session factory
 async_session_maker = async_sessionmaker(

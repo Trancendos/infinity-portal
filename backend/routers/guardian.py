@@ -200,7 +200,7 @@ async def issue_agent_token(
         "expires_at": expires_at.isoformat(),
         "ttl_seconds": request.ttl_seconds,
         "status": "active",
-        "issued_by": current_user.get("sub", "anonymous"),
+        "issued_by": getattr(current_user, "id", "anonymous"),
         "metadata": request.metadata,
         "usage_count": 0,
     }
@@ -283,7 +283,7 @@ async def revoke_token(
     _revoked_tokens.add(token_hash)
     record["status"] = "revoked"
     record["revoked_at"] = datetime.now(timezone.utc).isoformat()
-    record["revoked_by"] = current_user.get("sub", "anonymous")
+    record["revoked_by"] = getattr(current_user, "id", "anonymous")
     record["revocation_reason"] = request.reason
 
     _log_audit("token_revoked", record["agent_id"], {"reason": request.reason})
@@ -520,7 +520,7 @@ async def terminate_session(
 
     session["status"] = "terminated"
     session["terminated_at"] = datetime.now(timezone.utc).isoformat()
-    session["terminated_by"] = current_user.get("sub", "anonymous")
+    session["terminated_by"] = getattr(current_user, "id", "anonymous")
 
     _log_audit("session_terminated", session_id, {"terminated_by": session["terminated_by"]})
     return {"terminated": True, "session_id": session_id}
@@ -563,7 +563,7 @@ async def submit_context_declaration(
         "human_oversight": declaration.human_oversight,
         "transparency_notice": declaration.transparency_notice or f"AI agent {declaration.agent_id} operating for: {declaration.purpose}",
         "status": "active",
-        "declared_by": current_user.get("sub", "anonymous"),
+        "declared_by": getattr(current_user, "id", "anonymous"),
         "declared_at": now.isoformat(),
         "valid_until": (now + timedelta(days=365)).isoformat(),
         "eu_ai_act_compliance": {

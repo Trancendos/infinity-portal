@@ -36,7 +36,7 @@ class RAGQueryRequest(BaseModel):
     include_sources: bool = True
 
 class RAGIndexRequest(BaseModel):
-    documents: List[Dict[str, Any]] = Field(..., min_items=1, max_items=100)
+    documents: List[Dict[str, Any]] = Field(..., min_length=1, max_length=100)
     collection: str = Field(default="default", max_length=128)
     chunk_size: int = Field(default=512, ge=128, le=4096)
     overlap: int = Field(default=64, ge=0, le=512)
@@ -351,7 +351,7 @@ async def inject_agent_context(
         "content": request.content,
         "ttl_seconds": request.ttl_seconds,
         "expires_at": expires_at.isoformat(),
-        "injected_by": current_user.get("sub", "anonymous"),
+        "injected_by": getattr(current_user, "id", "anonymous"),
         "injected_at": now.isoformat(),
         "status": "active",
     }
@@ -412,7 +412,7 @@ async def create_module(
         "estimated_hours": request.estimated_hours,
         "enrolled": 0,
         "completion_rate": 0.0,
-        "created_by": current_user.get("sub", "anonymous"),
+        "created_by": getattr(current_user, "id", "anonymous"),
         "created_at": now.isoformat(),
         "status": "published",
     }

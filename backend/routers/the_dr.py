@@ -49,7 +49,7 @@ class CodeReviewRequest(BaseModel):
     context: Optional[str] = None
 
 class DiagnoseRequest(BaseModel):
-    symptoms: List[str] = Field(..., min_items=1, max_items=20)
+    symptoms: List[str] = Field(..., min_length=1, max_length=20)
     affected_services: List[str] = Field(default_factory=list)
     error_logs: Optional[str] = Field(None, max_length=20000)
     timeframe_minutes: int = Field(default=60, ge=1, le=1440)
@@ -282,7 +282,7 @@ async def heal(
         "remediation": remediation,
         "auto_applied": applied,
         "status": "applied" if applied else "pending_approval",
-        "initiated_by": current_user.get("sub", "anonymous"),
+        "initiated_by": getattr(current_user, "id", "anonymous"),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "completed_at": datetime.now(timezone.utc).isoformat() if applied else None,
         "context": request.context,
@@ -374,7 +374,7 @@ async def resolve_anomaly(
 
     anomaly["status"] = "resolved"
     anomaly["resolved_at"] = datetime.now(timezone.utc).isoformat()
-    anomaly["resolved_by"] = current_user.get("sub", "anonymous")
+    anomaly["resolved_by"] = getattr(current_user, "id", "anonymous")
     anomaly["resolution"] = resolution.get("notes", "Manually resolved")
     anomaly["resolution_method"] = resolution.get("method", "manual")
 

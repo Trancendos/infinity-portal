@@ -72,8 +72,15 @@ async def lifespan(app: FastAPI):
     _check_startup_config()
     # Initialise OpenTelemetry (no-op if OTEL_EXPORTER_OTLP_ENDPOINT not set)
     setup_telemetry(app)
+    # Start Kernel Event Bus
+    from kernel_event_bus import KernelEventBus
+    bus = await KernelEventBus.get_instance()
+    await bus.start()
+    logger.info("✅ Kernel Event Bus started")
     yield
     logger.info("🛑 Shutting down Infinity OS...")
+    await bus.stop()
+    logger.info("✅ Kernel Event Bus stopped")
     await close_db()
 
 

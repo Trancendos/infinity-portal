@@ -44,7 +44,7 @@ class IntentAnalysis(BaseModel):
 
 class AgentRegistration(BaseModel):
     name: str = Field(..., min_length=1, max_length=128, pattern="^[a-zA-Z0-9_-]+$")
-    capabilities: List[str] = Field(..., min_items=1)
+    capabilities: List[str] = Field(..., min_length=1)
     lane: str = Field(default="ai_nexus", pattern="^(ai_nexus|user_infinity|data_hive|cross_lane)$")
     version: str = Field(default="1.0.0")
     max_concurrent_tasks: int = Field(default=10, ge=1, le=100)
@@ -174,7 +174,7 @@ async def orchestrate(
 
     task_record = {
         "task_id": task_id,
-        "user_id": current_user.get("sub", "anonymous"),
+        "user_id": getattr(current_user, "id", "anonymous"),
         "prompt": request.prompt,
         "strategy": request.strategy,
         "agents": selected,
@@ -405,7 +405,7 @@ async def register_agent(
         "metadata": registration.metadata,
         "status": "active",
         "registered_at": datetime.now(timezone.utc).isoformat(),
-        "registered_by": current_user.get("sub", "anonymous"),
+        "registered_by": getattr(current_user, "id", "anonymous"),
     }
     _agents[registration.name] = agent_record
 
@@ -484,7 +484,7 @@ async def negotiate_consensus(
         "consensus_reached": consensus_reached,
         "outcome": "approved" if consensus_reached else "rejected",
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "initiated_by": current_user.get("sub", "anonymous"),
+        "initiated_by": getattr(current_user, "id", "anonymous"),
     }
     _consensus_rounds[round_id] = round_record
 
