@@ -15,8 +15,16 @@
 
 ## D. Fix deploy-cloudflare.yml (pnpm + wrangler)
 - [x] D1. Fix build-frontend job: replace npm ci → pnpm install
-- [x] D2. Fix deploy-frontend job: install wrangler globally, run wrangler CLI directly (bypass wrangler-action npm install)
-- [x] D3. Fix deploy-gateway job: install wrangler globally, run wrangler CLI directly from workers/api-gateway
+- [x] D2. Fix deploy-frontend job: install wrangler globally, run wrangler CLI directly
+- [x] D3. Fix deploy-gateway job: install wrangler globally, run wrangler CLI directly
 - [x] D4. Add KV namespace creation step (idempotent)
-- [ ] D5. Commit & push fix
-- [ ] D6. Trigger workflow run & verify success
+- [x] D5. Fix TypeScript errors (RoyalBankDashboard, useNetworkStatus, AuthProvider, vite-env.d.ts, kernel)
+- [x] D6. Fix YAML syntax error (inline python3 multiline broke YAML parser)
+- [x] D7. Add wrangler pages project create (idempotent) before Pages deploy
+- [x] D8. Commit & push all fixes (0773ecb)
+- [x] D9. Trigger workflow run 22809747524 — ALL JOBS GREEN ✅
+
+## E. Live Verification
+- [x] E1. Frontend live: https://infinity-portal.pages.dev — HTTP 200 ✅
+- [x] E2. API Gateway live: https://infinity-api-gateway.luminous-aimastermind.workers.dev — healthy ✅
+- [x] E3. Generate PROJECT_PULSE_SESSION17.md
