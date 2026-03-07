@@ -53,7 +53,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-test-results
           path: backend/test-results.txt
@@ -111,7 +111,7 @@ jobs:
           VITE_BACKEND_API_URL: https://api.infinity-os.dev
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: shell-dist
           path: apps/shell/dist
@@ -203,7 +203,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: apps/shell/playwright-report/
@@ -211,7 +211,7 @@ jobs:
 
       - name: Upload test traces
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-traces
           path: apps/shell/test-results/

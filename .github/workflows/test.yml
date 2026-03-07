@@ -36,7 +36,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: Upload coverage artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage/
@@ -128,7 +128,7 @@ jobs:
         run: npx playwright test
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: playwright-report
@@ -136,7 +136,7 @@ jobs:
           retention-days: 30
 
       - name: Upload Playwright screenshots
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-screenshots
