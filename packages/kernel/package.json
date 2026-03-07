@@ -1,9 +1,9 @@
 {
   "name": "@infinity-os/kernel",
   "version": "0.1.0",
-  "description": "Infinity OS Kernel — Service Worker process manager, IPC, permissions, and event bus",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "description": "Infinity OS Kernel \u2014 Service Worker process manager, IPC, permissions, and event bus",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",

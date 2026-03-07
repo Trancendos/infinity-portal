@@ -21,7 +21,7 @@
   "license": "MIT",
   "dependencies": {
     "zod": "^3.22.4",
-    "@trancendos/types": "*"
+    "@infinity-os/types": "workspace:*"
   },
   "devDependencies": {
     "@types/jest": "^29.5.11",

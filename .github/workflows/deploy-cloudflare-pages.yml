@@ -1,0 +1,79 @@
+# .github/workflows/deploy-cloudflare-pages.yml
+# Deploy Infinity OS Shell to Cloudflare Pages
+# Backend runs on Cloudflare Workers / Docker on any VPS behind Cloudflare Tunnel
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/shell/**'
+      - 'packages/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  deploy-frontend:
+    name: Deploy Shell to Cloudflare Pages
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment || 'production' }}
+      url: ${{ steps.deploy.outputs.url }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        run: npm install -g pnpm@8
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build Shell
+        run: |
+          cd apps/shell
+          npx vite build
+        env:
+          VITE_BACKEND_API_URL: ${{ vars.BACKEND_API_URL || 'https://api.infinity-os.dev' }}
+          VITE_WS_URL: ${{ vars.WS_URL || 'wss://api.infinity-os.dev' }}
+
+      - name: Deploy to Cloudflare Pages
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/shell/dist --project-name=infinity-os-shell --branch=${{ github.ref_name }}
+
+      - name: Post-deploy health check
+        run: |
+          DEPLOY_URL="${{ steps.deploy.outputs.url }}"
+          echo "🚀 Deployed to: ${DEPLOY_URL}"
+          
+          for i in {1..5}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${DEPLOY_URL}" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "⏳ Attempt $i: status=$STATUS, retrying in 5s..."
+            sleep 5
+          done
+          
+          echo "⚠️ Health check did not return 200 after 5 attempts"

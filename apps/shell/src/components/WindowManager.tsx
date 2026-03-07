@@ -272,3 +272,50 @@ export const MODULE_REGISTRY = [
   { id: 'com.infinity-os.observatory', name: 'Observatory', icon: '🔭', category: 'platform-core' },
   // ───────────────────────────────────────────────────────────────────────────
 ];
+// ============================================================
+// WINDOW MANAGER — Renders all open windows
+// ============================================================
+interface WindowManagerProps {
+  windows: Array<{
+    id: string;
+    moduleId: string;
+    title: string;
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+    isMinimized?: boolean;
+    isMaximized?: boolean;
+  }>;
+  onClose: (windowId: string) => void;
+  onFocus: (windowId: string) => void;
+  onUpdate?: (windowId: string, updates: Record<string, unknown>) => void;
+}
+
+export function WindowManager({ windows, onClose, onFocus, onUpdate }: WindowManagerProps) {
+  return (
+    <div className="absolute inset-0 pointer-events-none">
+      {windows.map((win, index) => (
+        <div key={win.id} className="pointer-events-auto">
+          <Window
+            id={win.id}
+            moduleId={win.moduleId}
+            title={win.title}
+            x={win.x ?? 100 + index * 30}
+            y={win.y ?? 100 + index * 30}
+            width={win.width ?? 800}
+            height={win.height ?? 600}
+            isActive={index === windows.length - 1}
+            isMinimized={win.isMinimized ?? false}
+            isMaximized={win.isMaximized ?? false}
+            onClose={() => onClose(win.id)}
+            onMinimize={() => onUpdate?.(win.id, { isMinimized: true })}
+            onMaximize={() => onUpdate?.(win.id, { isMaximized: !(win.isMaximized ?? false) })}
+            onFocus={() => onFocus(win.id)}
+            onDragStart={() => {}}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}

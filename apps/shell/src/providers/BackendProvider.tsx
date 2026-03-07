@@ -116,7 +116,7 @@ export function BackendProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-function useBackend() {
+export function useBackend() {
   const ctx = useContext(BackendContext);
   if (!ctx) throw new Error('useBackend must be used within BackendProvider');
   return ctx;

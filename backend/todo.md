@@ -1,18 +1,33 @@
-# Phase 22 — Platform Operations & Intelligence Layer (Session 14 cont.)
+# Phase 23 — Cloudflare Deployment & Live Platform
 
-## A. Fix DomainStore `.append()` Bug
-- [x] A1. Fix `admin_cli.py` — change `_command_history` from `list_store_factory` to `audit_log_factory`
-- [x] A2. Fix `sandboxes.py` — change `_exec_history` from `list_store_factory` to `audit_log_factory`
-- [x] A3. Remove unused `list_store_factory` imports if no longer needed
+## A. Strategy Assessment
+- [x] A1. Audit current architecture (FastAPI + PostgreSQL + Valkey + Workers)
+- [x] A2. Identify Cloudflare deployment targets
 
-## B. Run & Pass All Phase 22 Tests (67 new tests)
-- [x] B1. Run the 4 new test files and verify 0 failures
-- [x] B2. Fixed: regex \b after /, route ordering for /{sandbox_id} vs /overview & /audit
+## B. Get Backend Running Locally First
+- [x] B1. Install Python dependencies (fixed pytest version conflict)
+- [x] B2. Configure database (SQLite for dev)
+- [x] B3. Database auto-initialized on startup
+- [x] B4. Start the FastAPI backend on port 8000
+- [x] B5. Verify health endpoint works ✅
 
-## C. Full Suite Regression
-- [x] C1. Run full test suite — 875 tests, 0 failures ✅
-- [x] C2. No regressions found
+## C. Get Frontend Shell Running
+- [x] C1. Install Node.js dependencies (pnpm monorepo, fixed @trancendos refs)
+- [x] C2. Created vite.config.ts, tsconfig, tailwind, postcss, index.html
+- [x] C3. Created @infinity-os/ui package stub, fixed exports
+- [x] C4. Start the Vite dev server on port 5173 ✅
 
-## D. Finalize
-- [ ] D1. Create PROJECT_PULSE_SESSION14.md
-- [ ] D2. Git commit & push all Phase 22 changes
+## D. Expose & Share Running Platform
+- [x] D1. Expose backend API — https://00bzz.app.super.myninja.ai
+- [x] D2. Expose frontend — https://00c00.app.super.myninja.ai
+- [ ] D3. Share live URLs with Drew
+
+## E. Cloudflare Deployment Config
+- [ ] E1. Create wrangler.toml for Cloudflare Pages (frontend)
+- [ ] E2. Update deploy-cloudflare workflow for full stack
+- [ ] E3. Document Cloudflare setup steps for Drew's account
+- [ ] E4. Commit & push
+
+## F. Finalize
+- [ ] F1. PROJECT_PULSE_SESSION14_PART2.md
+- [ ] F2. Git commit & push
