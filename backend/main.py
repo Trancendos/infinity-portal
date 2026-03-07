@@ -241,6 +241,18 @@ from routers import (
 # Turing's Hub — AI Character Registry & Generator
 from routers import turings_hub
 
+# Governance — Citadel, Think Tank, ChronosSphere, DevOcity
+from routers import citadel, think_tank, chronossphere, devocity
+
+# The Studio — Creative Hub + 6 specialist modules
+from routers import studio, section7, style_and_shoot, digital_grid, tranceflow, tateking, fabulousa
+
+# Infrastructure + Wellbeing — Arcadian Exchange, VRAR3D
+from routers import arcadian_exchange, vrar3d
+
+# Luminous — Cognitive Core Application
+from routers import luminous
+
 app.include_router(auth.router)
 app.include_router(ai.router)
 app.include_router(compliance.router)
@@ -347,6 +359,28 @@ app.include_router(savania.router)        # Lane 1 — AI healer & defender
 
 # --- Turing's Hub (Governance — AI Character Registry) ---
 app.include_router(turings_hub.router)   # AI Generator — all characters originate here
+
+# --- Governance Routers ---
+app.include_router(citadel.router)       # The Citadel — Strategic Ops fortress
+app.include_router(think_tank.router)    # Think Tank — R&D Centre
+app.include_router(chronossphere.router) # ChronosSphere — Time management
+app.include_router(devocity.router)      # DevOcity — DevOps operations
+
+# --- The Studio (Creative Hub + Specialist Modules) ---
+app.include_router(studio.router)          # The Studio — Creative hub orchestrator
+app.include_router(section7.router)        # Section7 — Intelligence & analytics
+app.include_router(style_and_shoot.router) # Style&Shoot — 2D UI/UX design
+app.include_router(digital_grid.router)    # DigitalGrid — Spatial CI/CD
+app.include_router(tranceflow.router)      # TranceFlow — 3D Spatial design
+app.include_router(tateking.router)        # TateKing — Cinematic production
+app.include_router(fabulousa.router)       # Fabulousa — Fashion & lifestyle
+
+# --- Infrastructure + Wellbeing ---
+app.include_router(arcadian_exchange.router) # Arcadian Exchange — Procurement
+app.include_router(vrar3d.router)            # VRAR3D — VR/AR immersion
+
+# --- Luminous (Cognitive Core) ---
+app.include_router(luminous.router)          # Luminous — Knowledge graph, sessions, insights
 
 
 # ============================================================
