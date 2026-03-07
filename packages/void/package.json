@@ -16,7 +16,7 @@
   },
   "devDependencies": {
     "typescript": "^5.3.3",
-    "@types/node": "^20.11.0"
+    "@types/node": "^25.3.3"
   },
   "keywords": ["void", "secrets", "zero-knowledge", "quantum-safe", "shamir", "mpc", "vault"],
   "author": "Trancendos",
