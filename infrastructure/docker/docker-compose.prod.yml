@@ -216,7 +216,7 @@ services:
 # PROMTAIL — Log Shipping to Loki
 # ============================================================
   promtail:
-    image: grafana/promtail:2.9.0
+    image: grafana/promtail:2.9.17
     container_name: infinity-promtail
     restart: unless-stopped
     networks:
