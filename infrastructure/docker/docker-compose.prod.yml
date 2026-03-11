@@ -197,7 +197,7 @@ services:
 # ISO 27001: A.8.15 Logging
 # ============================================================
   loki:
-    image: grafana/loki:2.9.0
+    image: grafana/loki:2.9.17
     container_name: infinity-loki
     restart: unless-stopped
     networks:
