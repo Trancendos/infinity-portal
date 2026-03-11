@@ -419,7 +419,7 @@ importers:
     dependencies:
       hono:
         specifier: ^4.12.4
-        version: 4.12.5
+        version: 4.12.7
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.0.0
@@ -441,7 +441,7 @@ importers:
         version: link:../../packages/types
       hono:
         specifier: ^4.12.4
-        version: 4.12.5
+        version: 4.12.7
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -466,7 +466,7 @@ importers:
     dependencies:
       hono:
         specifier: ^4.12.4
-        version: 4.12.5
+        version: 4.12.7
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20231218.0
@@ -485,7 +485,7 @@ importers:
     dependencies:
       hono:
         specifier: ^4.12.4
-        version: 4.12.5
+        version: 4.12.7
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.0.0
@@ -5874,8 +5874,8 @@ packages:
     dependencies:
       function-bind: 1.1.2
 
-  /hono@4.12.5:
-    resolution: {integrity: sha512-3qq+FUBtlTHhtYxbxheZgY8NIFnkkC/MR8u5TTsr7YZ3wixryQ3cCwn3iZbg8p8B88iDBBAYSfZDS75t8MN7Vg==}
+  /hono@4.12.7:
+    resolution: {integrity: sha512-jq9l1DM0zVIvsm3lv9Nw9nlJnMNPOcAtsbsgiUhWcFzPE99Gvo6yRTlszSLLYacMeQ6quHD6hMfId8crVHvexw==}
     engines: {node: '>=16.9.0'}
     dev: false
 
