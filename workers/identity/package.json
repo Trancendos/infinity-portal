@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@infinity-os/types": "workspace:*",
-    "hono": "^4.12.4",
+    "hono": "^4.12.7",
     "zod": "^3.22.4"
   },
   "devDependencies": {
