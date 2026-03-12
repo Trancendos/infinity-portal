@@ -16,7 +16,7 @@ pydantic-settings==2.9.1
 orjson==3.11.7
 
 # HTTP & Async
-aiohttp==3.11.18
+aiohttp==3.13.3
 httpx==0.28.1
 requests==2.32.4
 
