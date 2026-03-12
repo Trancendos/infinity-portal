@@ -16,7 +16,7 @@ pydantic-settings==2.9.1
 orjson==3.11.7
 
 # HTTP & Async
-aiohttp==3.11.18
+aiohttp==3.13.3
 httpx==0.28.1
 requests==2.32.4
 
@@ -30,8 +30,8 @@ google-generativeai==0.8.5
 # python-jose is abandoned with multiple unpatched vulnerabilities
 PyJWT[crypto]==2.11.0
 passlib[bcrypt]==1.7.4
-python-multipart==0.0.20
-cryptography>=43.0.1
+python-multipart==0.0.22
+cryptography>=46.0.5
 
 # Monitoring & Observability
 prometheus-client==0.21.1
