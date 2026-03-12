@@ -7,7 +7,7 @@
 
 # Core Framework
 fastapi==0.115.12
-uvicorn[standard]==0.34.3
+uvicorn[standard]==0.41.0
 
 # Data Validation & Serialization
 pydantic[email]==2.12.5
