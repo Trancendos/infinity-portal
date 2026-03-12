@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 from typing import Dict, Set, Optional
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
-from jose import jwt, JWTError
+import jwt as pyjwt
+from jwt.exceptions import InvalidTokenError as JWTError
 
 router = APIRouter(tags=["WebSocket"])
 logger = logging.getLogger("infinity-os.ws")
@@ -97,7 +98,7 @@ def _verify_ws_token(token: str) -> Optional[dict]:
     if not secret:
         return None
     try:
-        payload = jwt.decode(token, secret, algorithms=["HS256"])
+        payload = pyjwt.decode(token, secret, algorithms=["HS256"])
         if payload.get("type") != "access":
             return None
         return payload

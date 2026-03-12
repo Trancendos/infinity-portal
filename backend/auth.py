@@ -29,7 +29,8 @@ from typing import Optional, Dict, Any, List, Tuple
 from collections import defaultdict
 
 import bcrypt
-from jose import jwt, JWTError, ExpiredSignatureError
+import jwt as pyjwt
+from jwt.exceptions import InvalidTokenError as JWTError, ExpiredSignatureError
 from fastapi import HTTPException, Depends, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, field_validator
@@ -806,7 +807,7 @@ class AuthService:
             "type": token_type,
             "jti": str(uuid.uuid4()),
         })
-        return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+        return pyjwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
     @staticmethod
     def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
@@ -820,7 +821,7 @@ class AuthService:
     @staticmethod
     def verify_token(token: str) -> Dict[str, Any]:
         try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            payload = pyjwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
             return payload
         except ExpiredSignatureError:
             raise HTTPException(status_code=401, detail="Token expired")

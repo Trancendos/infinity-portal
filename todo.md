@@ -1,31 +1,32 @@
-# Phase 27 — Full Cloudflare Stack (Backend + D1 Database)
+# PHASE 28 — Full Security Remediation & Future-Proofing
 
-## A. Cloudflare Worker Backend (Auth API)
-- [ ] A1. Create workers/auth-api/ directory structure
-- [ ] A2. Build auth endpoints: /register, /login, /logout, /refresh, /me
-- [ ] A3. Build user management + RBAC endpoints
-- [ ] A4. JWT token generation + validation (Web Crypto API)
-- [ ] A5. Password hashing (PBKDF2 via Web Crypto)
-- [ ] A6. Middleware: auth guard, CORS, rate limit, security headers
+## STEP 1: Triage & Close Duplicate Issues
+- [ ] Close all 1,114 duplicate auto-generated issues (bulk close)
+- [ ] Read real issues #1, #2, #1081 for context
 
-## B. Cloudflare D1 Database
-- [ ] B1. Create D1 schema (users, sessions, organisations, audit_logs, rbac)
-- [ ] B2. Create migration SQL files
-- [ ] B3. Wire D1 binding into auth worker wrangler.toml
+## STEP 2: Fix All 33 Unique CVEs at Source
+- [ ] Fix vite@5.0.10 → upgrade to latest (closes 9 CVEs)
+- [ ] Fix vitest@1.0.0 → upgrade to latest
+- [ ] Fix python-jose → replace with PyJWT (5 CVEs, abandoned package)
+- [ ] Fix sqlalchemy → upgrade to latest (4 CVEs)
+- [ ] Fix uvicorn → upgrade to latest (4 CVEs)
+- [ ] Fix pydantic → upgrade to latest (3 CVEs)
+- [ ] Fix aiohttp → upgrade to latest (1 CVE)
 
-## C. Worker Configuration & Deployment
-- [ ] C1. Create workers/auth-api/wrangler.toml with D1 + KV bindings
-- [ ] C2. Create workers/auth-api/package.json + tsconfig
-- [ ] C3. Update deploy-cloudflare.yml to deploy auth-api + create D1
-- [ ] C4. Update frontend VITE_BACKEND_API_URL to point to auth worker
+## STEP 3: Stop Issue Flood — Fix CI Scanner Config
+- [ ] Configure scanner to deduplicate issues
+- [ ] Add dedup logic to prevent re-creating existing open issues
 
-## D. Additional Workers
-- [ ] D1. AI/inference worker (workers/ai-api/)
-- [ ] D2. File storage worker (workers/files-api/) using R2
-- [ ] D3. WebSocket/realtime worker (workers/ws-api/) using Durable Objects
+## STEP 4: Auth API — Complete Deployment
+- [ ] Use D1_DATABASE_ID approach to unblock auth-api deploy
+- [ ] Trigger and verify auth-api deployment
 
-## E. Ship & Verify
-- [ ] E1. Commit + push all workers
-- [ ] E2. Trigger full Cloudflare deploy
-- [ ] E3. Verify register/login works end-to-end
-- [ ] E4. PROJECT_PULSE_SESSION18.md
+## STEP 5: Future-Proof Security Architecture
+- [ ] Implement proper Dependabot config
+- [ ] Add SECURITY.md and responsible disclosure policy
+- [ ] Create runtime security headers in all workers
+- [ ] Implement CSP, HSTS, rate limiting improvements
+
+## STEP 6: Documentation & Project Pulse
+- [ ] Write PROJECT_PULSE_SESSION18.md covering Phase 27+28
+- [ ] Update SECURITY_STATUS.md with remediation state

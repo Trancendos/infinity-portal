@@ -1,7 +1,7 @@
 {
   "name": "@infinity-os/shell",
   "version": "0.1.0",
-  "description": "Infinity OS Shell — The main desktop environment PWA",
+  "description": "Infinity OS Shell \u2014 The main desktop environment PWA",
   "private": true,
   "scripts": {
     "dev": "vite",
@@ -34,14 +34,14 @@
   "devDependencies": {
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
-    "@vitejs/plugin-react": "^4.2.1",
+    "@vitejs/plugin-react": "^4.5.0",
     "typescript": "^5.3.0",
-    "vite": "^5.0.10",
+    "vite": "^7.3.1",
     "vite-plugin-pwa": "^0.17.4",
     "tailwindcss": "^3.4.0",
     "autoprefixer": "^10.4.16",
     "postcss": "^8.4.32",
-    "vitest": "^1.0.0",
+    "vitest": "^4.0.18",
     "@testing-library/react": "^14.1.2",
     "@testing-library/user-event": "^14.5.2"
   }

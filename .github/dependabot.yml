@@ -1,61 +1,134 @@
 # .github/dependabot.yml
-# Copy this to every repository's .github/ directory
-# Automated dependency management across the Trancendos ecosystem
+# ============================================================
+# Infinity OS — Automated Dependency Management
+# Phase 28: Enhanced with all workers, backend, and apps
+# ============================================================
 version: 2
 
 updates:
-  # npm dependencies
+  # ── Root npm workspace ──────────────────────────────────────────────────
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
+      time: "06:00"
+      timezone: "UTC"
     open-pull-requests-limit: 10
     reviewers:
       - "Trancendos"
     labels:
       - "dependencies"
       - "automated"
-    # Auto-merge patch and minor dev dependencies
     groups:
       dev-dependencies:
         dependency-type: "development"
-        update-types:
-          - "minor"
-          - "patch"
+        update-types: ["minor", "patch"]
       production-dependencies:
         dependency-type: "production"
-        update-types:
-          - "patch"
+        update-types: ["patch"]
 
-  # pip dependencies (for Python repos)
-  - package-ecosystem: "pip"
-    directory: "/"
+  # ── Frontend app/shell ──────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/apps/shell"
     schedule:
       interval: "weekly"
       day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "frontend"
+      - "automated"
+    groups:
+      vite-ecosystem:
+        patterns: ["vite", "vitest", "@vitejs/*"]
+        update-types: ["minor", "patch"]
+
+  # ── Auth API Worker ─────────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/workers/auth-api"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "worker"
+      - "automated"
+
+  # ── AI API Worker ───────────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/workers/ai-api"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "worker"
+      - "automated"
+
+  # ── Files API Worker ────────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/workers/files-api"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "worker"
+      - "automated"
+
+  # ── WS API Worker ───────────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/workers/ws-api"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "worker"
+      - "automated"
+
+  # ── Backend Python deps ─────────────────────────────────────────────────
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
     open-pull-requests-limit: 5
     reviewers:
       - "Trancendos"
     labels:
       - "dependencies"
+      - "backend"
       - "automated"
 
-  # GitHub Actions
+  # ── App Factory Python deps ─────────────────────────────────────────────
+  - package-ecosystem: "pip"
+    directory: "/workers/app-factory"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "worker"
+      - "automated"
+
+  # ── GitHub Actions ──────────────────────────────────────────────────────
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "thursday"
     open-pull-requests-limit: 5
     labels:
       - "ci-cd"
       - "automated"
-
-  # Docker
-  - package-ecosystem: "docker"
-    directory: "/"
-    schedule:
-      interval: "monthly"
-    labels:
-      - "docker"
-      - "automated"
+    groups:
+      github-actions:
+        patterns: ["actions/*", "cloudflare/*"]
+        update-types: ["minor", "patch"]

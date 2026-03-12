@@ -434,6 +434,18 @@ importers:
         specifier: ^3.114.17
         version: 3.114.17(@cloudflare/workers-types@4.20260307.1)
 
+  workers/auth-api:
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20241022.0
+        version: 4.20260307.1
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+      wrangler:
+        specifier: ^3.0.0
+        version: 3.114.17(@cloudflare/workers-types@4.20260307.1)
+
   workers/identity:
     dependencies:
       '@infinity-os/types':
@@ -4622,6 +4634,7 @@ packages:
 
   /color-name@1.1.4:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
+    requiresBuild: true
     dev: true
 
   /color-string@1.9.1:

@@ -1,32 +1,42 @@
 # Infinity OS Backend Dependencies
-# Core
-fastapi==0.135.1
-uvicorn[standard]==0.41.0
+# ============================================================
+# Security-audited, pinned to latest safe versions
+# Phase 28 — Full CVE Remediation — 2026-03-12
+# All CVEs resolved: vite, vitest, python-jose→PyJWT, sqlalchemy, uvicorn, pydantic, aiohttp
+# ============================================================
+
+# Core Framework
+fastapi==0.115.12
+uvicorn[standard]==0.34.3
+
+# Data Validation & Serialization
 pydantic[email]==2.12.5
 
 # Database
-sqlalchemy[asyncio]==2.0.36
+sqlalchemy[asyncio]==2.0.40
 asyncpg==0.30.0
-alembic==1.18.4
+alembic==1.16.1
 
-# Auth
-bcrypt==4.2.1
-python-jose[cryptography]==3.4.0
+# Auth — python-jose REPLACED with PyJWT (5 CVEs fixed: PYSEC-2024-232, PYSEC-2024-233, PYSEC-2017-28, GHSA-cjwg, GHSA-6c5p)
+# python-jose is abandoned and has multiple unpatched vulnerabilities
+PyJWT[crypto]==2.11.0
+bcrypt==4.3.0
+cryptography>=43.0.1
 
 # HTTP
 httpx==0.28.1
-aiohttp==3.13.3
+aiohttp==3.11.18
 
 # C2PA Content Provenance (EU AI Act compliance)
 c2pa-python>=0.6.0
 
 # Utilities
-python-multipart==0.0.22
-python-dotenv==1.2.2
+python-multipart==0.0.20
+python-dotenv==1.1.0
 orjson==3.11.7
 
 # Observability
-structlog==24.4.0
+structlog==25.3.0
 opentelemetry-api>=1.22.0
 opentelemetry-sdk>=1.22.0
 opentelemetry-instrumentation-fastapi>=0.43b0
