@@ -255,45 +255,44 @@ jobs:
         working-directory: workers/auth-api
         run: pnpm install --no-frozen-lockfile
 
-      - name: Create D1 database (idempotent)
+      - name: Create D1 database via REST API (idempotent)
         working-directory: workers/auth-api
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          set +e
+          set -e
           ENV="${{ inputs.environment || 'production' }}"
           DB_NAME="infinity-os-db"
           if [ "$ENV" = "staging" ]; then DB_NAME="infinity-os-db-staging"; fi
+          CF_BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
 
-          echo "Creating D1 database: $DB_NAME"
-          wrangler d1 create "$DB_NAME" 2>&1 || true
+          echo "Checking if D1 database '$DB_NAME' exists..."
+          LIST_RESP=$(curl -s -X GET "${CF_BASE}/d1/database?name=${DB_NAME}"             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"             -H "Content-Type: application/json")
+          echo "List response: $LIST_RESP"
 
-          echo "Listing D1 databases (JSON) to extract ID..."
-          wrangler d1 list --json > /tmp/d1_list.json 2>&1 || true
-          cat /tmp/d1_list.json
+          D1_ID=$(echo "$LIST_RESP" | jq -r '.result[0].uuid // .result[0].id // empty' 2>/dev/null || echo "")
 
-          # Extract UUID using jq from JSON output
-          D1_ID=$(jq -r ".[] | select(.name == "$DB_NAME") | .uuid" /tmp/d1_list.json 2>/dev/null || echo "")
-
-          # Fallback: try .id field
           if [ -z "$D1_ID" ] || [ "$D1_ID" = "null" ]; then
-            D1_ID=$(jq -r ".[] | select(.name == "$DB_NAME") | .id" /tmp/d1_list.json 2>/dev/null || echo "")
+            echo "Database not found — creating..."
+            CREATE_RESP=$(curl -s -X POST "${CF_BASE}/d1/database"               -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"               -H "Content-Type: application/json"               -d "{"name": "${DB_NAME}"}")
+            echo "Create response: $CREATE_RESP"
+            D1_ID=$(echo "$CREATE_RESP" | jq -r '.result.uuid // .result.id // empty' 2>/dev/null || echo "")
           fi
 
           echo "D1 ID: ${D1_ID:-NOT_FOUND}"
-          if [ -n "$D1_ID" ] && [ "$D1_ID" != "null" ]; then
+          if [ -n "$D1_ID" ] && [ "$D1_ID" != "null" ] && [ "$D1_ID" != "" ]; then
             sed -i "s/placeholder-d1-id/${D1_ID}/g" wrangler.toml
             sed -i "s/placeholder-d1-staging-id/${D1_ID}/g" wrangler.toml
             echo "✅ D1 ID injected: $D1_ID"
-            cat wrangler.toml | grep database_id
+            grep database_id wrangler.toml
           else
-            echo "❌ Failed to get D1 ID — aborting"
+            echo "❌ Failed to get/create D1 database — check API token has D1 permissions"
+            echo "Token permissions: https://dash.cloudflare.com/profile/api-tokens"
             exit 1
           fi
-          set -e
 
-      - name: Run D1 migrations
+      - name: Run D1 migrations via REST API
         working-directory: workers/auth-api
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -303,46 +302,54 @@ jobs:
           ENV="${{ inputs.environment || 'production' }}"
           DB_NAME="infinity-os-db"
           if [ "$ENV" = "staging" ]; then DB_NAME="infinity-os-db-staging"; fi
+          CF_BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
 
-          echo "Running migrations on $DB_NAME..."
-          wrangler d1 execute "$DB_NAME" --file=migrations/0001_initial.sql 2>&1 || true
-          echo "✅ Migrations applied"
+          # Get D1 database UUID
+          D1_ID=$(curl -s "${CF_BASE}/d1/database?name=${DB_NAME}"             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" |             jq -r '.result[0].uuid // .result[0].id // empty' 2>/dev/null || echo "")
+
+          if [ -n "$D1_ID" ] && [ "$D1_ID" != "null" ]; then
+            echo "Running migrations on $DB_NAME ($D1_ID)..."
+            SQL=$(cat migrations/0001_initial.sql)
+            MIG_RESP=$(curl -s -X POST "${CF_BASE}/d1/database/${D1_ID}/query"               -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"               -H "Content-Type: application/json"               -d "{"sql": $(echo "$SQL" | jq -Rs .)}")
+            echo "Migration response: $(echo "$MIG_RESP" | jq -r '.success // .errors')"
+            echo "✅ Migrations applied"
+          else
+            echo "⚠️  Could not find D1 database for migrations — skipping"
+          fi
           set -e
 
-      - name: Create Sessions KV namespace (idempotent)
+      - name: Create Sessions KV namespace via REST API (idempotent)
         working-directory: workers/auth-api
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          set +e
-          # Try to create (will fail if exists — that's ok)
-          wrangler kv namespace create "SESSIONS" 2>&1 || true
+          set -e
+          CF_BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
+          KV_TITLE="infinity-auth-api-SESSIONS"
 
-          # List all KV namespaces as JSON
-          echo "Listing KV namespaces (JSON)..."
-          wrangler kv namespace list 2>/dev/null > /tmp/kv_list.json || true
-          cat /tmp/kv_list.json
+          echo "Checking KV namespace '$KV_TITLE'..."
+          LIST_RESP=$(curl -s "${CF_BASE}/storage/kv/namespaces?per_page=100"             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+          echo "KV list response: $LIST_RESP"
 
-          # Extract ID for SESSIONS namespace 
-          # wrangler kv namespace create "SESSIONS" creates title "infinity-auth-api-SESSIONS"
-          # Try exact match first, then partial
-          KV_ID=$(jq -r '.[] | select(.title == "infinity-auth-api-SESSIONS") | .id' /tmp/kv_list.json 2>/dev/null | head -1 || echo "")
+          KV_ID=$(echo "$LIST_RESP" | jq -r ".result[] | select(.title == "${KV_TITLE}") | .id" 2>/dev/null | head -1 || echo "")
+
           if [ -z "$KV_ID" ] || [ "$KV_ID" = "null" ]; then
-            KV_ID=$(jq -r '.[] | select(.title | test("SESSIONS")) | .id' /tmp/kv_list.json 2>/dev/null | head -1 || echo "")
+            echo "KV namespace not found — creating..."
+            CREATE_RESP=$(curl -s -X POST "${CF_BASE}/storage/kv/namespaces"               -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"               -H "Content-Type: application/json"               -d "{"title": "${KV_TITLE}"}")
+            echo "Create response: $CREATE_RESP"
+            KV_ID=$(echo "$CREATE_RESP" | jq -r '.result.id // empty' 2>/dev/null || echo "")
           fi
 
           echo "Sessions KV ID: ${KV_ID:-NOT_FOUND}"
-          if [ -n "$KV_ID" ] && [ "$KV_ID" != "null" ]; then
+          if [ -n "$KV_ID" ] && [ "$KV_ID" != "null" ] && [ "$KV_ID" != "" ]; then
             sed -i "s/placeholder-sessions-kv-id/${KV_ID}/g" wrangler.toml
             sed -i "s/placeholder-sessions-kv-staging-id/${KV_ID}/g" wrangler.toml
             echo "✅ Sessions KV injected: $KV_ID"
-            cat wrangler.toml | grep "id ="
           else
-            echo "⚠️  Could not find Sessions KV ID — checking raw output..."
-            cat /tmp/kv_list.json
+            echo "❌ Failed to get/create Sessions KV namespace"
+            exit 1
           fi
-          set -e
 
       - name: Set SECRET_KEY secret
         working-directory: workers/auth-api
