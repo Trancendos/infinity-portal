@@ -1,4 +1,4 @@
-# 🕵️‍♂️ Bert-Joen Kater — The Storyista / The Researchista
+# 🕵️♂️ Bert-Joen Kater — The Storyista / The Researchista
 
 > **Entity:** AI Persona / Trancendos Ecosystem
 > **Studio Affiliation:** Section7
