@@ -1,7 +1,7 @@
 {
   "name": "@arcadia/royal-bank",
   "version": "1.0.0",
-  "description": "Royal Bank of Arcadia — Financial intelligence, cost monitoring & revenue engine",
+  "description": "Royal Bank of Arcadia \u2014 Financial intelligence, cost monitoring & revenue engine",
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
@@ -16,7 +16,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.0.0",
     "typescript": "^5.0.0",
-    "vitest": "^1.0.0",
+    "vitest": "^4.0.18",
     "wrangler": "^3.114.17"
   }
 }

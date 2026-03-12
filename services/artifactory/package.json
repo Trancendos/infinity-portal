@@ -81,7 +81,7 @@
     "@types/morgan": "^1.9.9",
     "drizzle-kit": "^0.21.0",
     "tsx": "^4.7.0",
-    "vitest": "^1.2.0"
+    "vitest": "^4.0.18"
   },
   "engines": {
     "node": ">=20.0.0"

@@ -1,7 +1,7 @@
 {
   "name": "@arcadia/arcadian-exchange",
   "version": "1.0.0",
-  "description": "Arcadian Exchange — Digital marketplace & autonomous investment engine",
+  "description": "Arcadian Exchange \u2014 Digital marketplace & autonomous investment engine",
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
@@ -16,7 +16,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.0.0",
     "typescript": "^5.0.0",
-    "vitest": "^1.0.0",
+    "vitest": "^4.0.18",
     "wrangler": "^3.114.17"
   }
 }
