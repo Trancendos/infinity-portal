@@ -478,4 +478,6 @@ export function iamHealthStatus(serviceId: string, meshAddress?: string) {
 // ============================================================
 
 export { sha512Hash, evaluatePermissionLocal, auditLog };
-export type { IAMMiddlewareOptions, PermissionRequirement };
+// Note: IAMMiddlewareOptions and PermissionRequirement are already exported
+// as 'export interface' at their declaration sites above; re-exporting here
+// would cause "Export declaration conflicts" TypeScript error.
