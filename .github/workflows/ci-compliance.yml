@@ -299,6 +299,8 @@ jobs:
 # ============================================================
   notify-failure:
     name: Notify on Failure
+    permissions:
+      issues: write
     runs-on: ubuntu-latest
     needs: [quality, test, security, compliance, build]
     if: failure()
