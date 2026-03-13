@@ -530,7 +530,7 @@ app.get('/health', (c) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     version: '1.0.0',
-    uptime: process.uptime
+    uptime: Date.now()
   });
 });
 
