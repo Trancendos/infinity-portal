@@ -13,7 +13,7 @@
   "dependencies": {
     "@infinity-os/types": "workspace:*",
     "@simplewebauthn/browser": "^9.0.0",
-    "@simplewebauthn/server": "^9.0.0",
+    "@simplewebauthn/server": "^13.2.3",
     "@simplewebauthn/types": "^9.0.0"
   },
   "devDependencies": {
