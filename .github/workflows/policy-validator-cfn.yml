@@ -25,10 +25,30 @@ env:
   REFERENCE_POLICY: ${{ secrets.REFERENCE_IDENTITY_POLICY || '' }}
   REFERENCE_POLICY_TYPE: ${{ secrets.REFERENCE_POLICY_TYPE || 'IDENTITY' }}
 jobs:
+  # Guard job: always passes, indicates whether AWS credentials are configured
+  check-credentials:
+    runs-on: ubuntu-latest
+    name: Check AWS credentials configured
+    outputs:
+      has_credentials: ${{ steps.check.outputs.has_credentials }}
+    steps:
+      - name: Check if POLICY_VALIDATOR_ROLE secret is set
+        id: check
+        run: |
+          if [ -n "${{ secrets.POLICY_VALIDATOR_ROLE }}" ]; then
+            echo "has_credentials=true" >> $GITHUB_OUTPUT
+            echo "AWS credentials configured - will run policy validation"
+          else
+            echo "has_credentials=false" >> $GITHUB_OUTPUT
+            echo "POLICY_VALIDATOR_ROLE secret not configured - skipping policy validation"
+            echo "To enable: add POLICY_VALIDATOR_ROLE, AWS_REGION secrets to this repository"
+          fi
+
   policy-validator:
     runs-on: ubuntu-latest # Virtual machine to run the workflow (configurable)
+    needs: check-credentials
     # Skip if AWS credentials are not configured (POLICY_VALIDATOR_ROLE secret not set)
-    if: ${{ secrets.POLICY_VALIDATOR_ROLE != '' }}
+    if: needs.check-credentials.outputs.has_credentials == 'true'
     # https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services#updating-your-github-actions-workflow
     # https://aws.amazon.com/blogs/security/use-iam-roles-to-connect-github-actions-to-actions-in-aws/
     permissions:
