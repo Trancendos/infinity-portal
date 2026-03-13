@@ -17,16 +17,18 @@ on:
     # The branches below must be a subset of the branches above
     branches: ["main"]
 env:
-  AWS_ROLE: MY_ROLE # set this with the role ARN which has permissions to invoke access-analyzer:ValidatePolicy,access-analyzer:CheckNoNewAccess, access-analyzer:CheckAccessNotGranted and can be used in GitHub actions
-  REGION: MY_AWS_REGION # set this to your preferred AWS region where you plan to deploy your policies, e.g. us-west-1
-  TEMPLATE_PATH: FILE_PATH_TO_CFN_TEMPLATE # set to the file path to the CloudFormation template.
-  ACTIONS: MY_LIST_OF_ACTIONS # set to pass list of actions in the format action1, action2,.. One of `ACTIONS` or `RESOURCES` is required if you are using `CHECK_ACCESS_NOT_GRANTED` policy-check-type.
-  RESOURCES: MY_LIST_OF_RESOURCES # set to pass list of resource ARNs in the format resource1, resource2,.. One of `ACTIONS` or `RESOURCES` is required if you are using `CHECK_ACCESS_NOT_GRANTED` policy-check-type.
-  REFERENCE_POLICY: REFERENCE_POLICY # set to pass a JSON formatted file that specifies the path to the reference policy that is used for a permissions comparison. For example, if you stored such path in a GitHub secret with name REFERENCE_IDENTITY_POLICY , you can pass ${{ secrets.REFERENCE_IDENTITY_POLICY }}. If not you have the reference policy in the repository, you can directly pass it's file path. This is required if you are using `CHECK_NO_NEW_ACCESS_CHECK` policy-check-type.
-  REFERENCE_POLICY_TYPE: TYPE_OF_REFERENCE_POLICY # set to pass the policy type associated with the IAM policy under analysis and the reference policy. This is required if you are using `CHECK_NO_NEW_ACCESS_CHECK` policy-check-type.
+  AWS_ROLE: ${{ secrets.POLICY_VALIDATOR_ROLE || 'NOT_CONFIGURED' }}
+  REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+  TEMPLATE_PATH: ${{ secrets.CFN_TEMPLATE_PATH || 'k8s/deployment.yaml' }}
+  ACTIONS: ${{ secrets.IAM_ACTIONS || 'sts:AssumeRole' }}
+  RESOURCES: ${{ secrets.IAM_RESOURCES || '*' }}
+  REFERENCE_POLICY: ${{ secrets.REFERENCE_IDENTITY_POLICY || '' }}
+  REFERENCE_POLICY_TYPE: ${{ secrets.REFERENCE_POLICY_TYPE || 'IDENTITY' }}
 jobs:
   policy-validator:
     runs-on: ubuntu-latest # Virtual machine to run the workflow (configurable)
+    # Skip if AWS credentials are not configured (POLICY_VALIDATOR_ROLE secret not set)
+    if: ${{ secrets.POLICY_VALIDATOR_ROLE != '' }}
     # https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services#updating-your-github-actions-workflow
     # https://aws.amazon.com/blogs/security/use-iam-roles-to-connect-github-actions-to-actions-in-aws/
     permissions:
