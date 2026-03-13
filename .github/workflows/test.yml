@@ -10,29 +10,32 @@ jobs:
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '20'
 
-      - name: Cache node_modules
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      - name: Install pnpm
+        run: npm install -g pnpm@8
+
+      - name: Cache pnpm store
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
         with:
-          path: node_modules
-          key: ${{ runner.os }}-node-20-${{ hashFiles('package.json') }}
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('package.json') }}
           restore-keys: |
-            ${{ runner.os }}-node-20-
+            ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Run unit tests
-        run: npm run test:unit -- --coverage --maxWorkers=2 || echo "No unit tests configured"
+        run: pnpm run test:unit -- --coverage --maxWorkers=2 || echo "No unit tests configured"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
@@ -43,7 +46,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: Upload coverage artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: coverage-report
           path: coverage/
@@ -52,7 +55,7 @@ jobs:
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgres:14
@@ -79,31 +82,34 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '20'
 
-      - name: Cache node_modules
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      - name: Install pnpm
+        run: npm install -g pnpm@8
+
+      - name: Cache pnpm store
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
         with:
-          path: node_modules
-          key: ${{ runner.os }}-node-20-${{ hashFiles('package.json') }}
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('package.json') }}
           restore-keys: |
-            ${{ runner.os }}-node-20-
+            ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Run database migrations
-        run: npm run db:migrate || echo "No migrations configured"
+        run: pnpm run db:migrate || echo "No migrations configured"
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
 
       - name: Run integration tests
-        run: npm run test:integration || echo "No integration tests configured"
+        run: pnpm run test:integration || echo "No integration tests configured"
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
           REDIS_URL: redis://localhost:6379
@@ -111,35 +117,38 @@ jobs:
   e2e-tests:
     name: E2E Tests
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '20'
 
-      - name: Cache node_modules
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      - name: Install pnpm
+        run: npm install -g pnpm@8
+
+      - name: Cache pnpm store
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
         with:
-          path: node_modules
-          key: ${{ runner.os }}-node-20-${{ hashFiles('package.json') }}
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('package.json') }}
           restore-keys: |
-            ${{ runner.os }}-node-20-
+            ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps || true
 
       - name: Build application
-        run: npm run build || echo "No build configured"
+        run: pnpm run build || echo "No build configured"
 
       - name: Start application
-        run: npm run start &
+        run: pnpm run start &
         env:
           NODE_ENV: test
 
@@ -150,7 +159,7 @@ jobs:
         run: npx playwright test || echo "No E2E tests configured"
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         if: always()
         with:
           name: playwright-report
@@ -159,7 +168,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload Playwright screenshots
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         if: failure()
         with:
           name: playwright-screenshots
@@ -170,53 +179,59 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '20'
 
-      - name: Cache node_modules
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      - name: Install pnpm
+        run: npm install -g pnpm@8
+
+      - name: Cache pnpm store
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
         with:
-          path: node_modules
-          key: ${{ runner.os }}-node-20-${{ hashFiles('package.json') }}
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('package.json') }}
           restore-keys: |
-            ${{ runner.os }}-node-20-
+            ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Run linter
-        run: npm run lint || true
+        run: pnpm run lint || true
 
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '20'
 
-      - name: Cache node_modules
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      - name: Install pnpm
+        run: npm install -g pnpm@8
+
+      - name: Cache pnpm store
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
         with:
-          path: node_modules
-          key: ${{ runner.os }}-node-20-${{ hashFiles('package.json') }}
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('package.json') }}
           restore-keys: |
-            ${{ runner.os }}-node-20-
+            ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Run type check
-        run: npm run typecheck || true
+        run: pnpm run typecheck || true
