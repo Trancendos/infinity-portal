@@ -1,0 +1,129 @@
+{
+  "$schema": "./schemas/tiga-manifest.schema.json",
+  "version": "2.0.0",
+  "system": {
+    "id": "infinity-portal",
+    "name": "Infinity Portal",
+    "description": "The central OS-level portal for the Trancendos Universe ecosystem — auth, IAM, RBAC, worker orchestration, and service mesh coordination",
+    "owner": "Andrew Porter / Trancendos",
+    "wave": "Wave 1",
+    "port": "8000"
+  },
+  "governance": {
+    "logic_level": "LL2",
+    "logic_level_justification": "Core platform orchestrating identity, auth, and service routing across the ecosystem. Contains AI-adjacent features but human remains in control of all access decisions.",
+    "risk_tier": "Medium",
+    "maturity_level": "M2",
+    "autonomy_level": "advisory",
+    "magna_carta_articles": ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"],
+    "applicable_regulations": ["GDPR", "EU_AI_ACT", "ISO_27001"],
+    "ista_compliant": true,
+    "ista_persona": "Infinity OS Platform"
+  },
+  "capabilities": {
+    "core_skills": [
+      "identity-management",
+      "authentication",
+      "authorisation",
+      "rbac",
+      "service-orchestration",
+      "api-gateway",
+      "worker-coordination"
+    ],
+    "non_goals": [
+      "direct-user-content-generation",
+      "autonomous-decision-making-without-human-oversight"
+    ],
+    "processes_personal_data": true,
+    "has_ai_features": true,
+    "ai_categories": ["routing-intelligence", "anomaly-detection"],
+    "agi_traits": {
+      "general_reasoning": false,
+      "transfer_learning": false,
+      "self_modification": false,
+      "deceptive_alignment": false,
+      "constraint_resistance": false
+    }
+  },
+  "interfaces": {
+    "input_formats": ["HTTP/REST", "WebSocket", "JSON"],
+    "output_formats": ["JSON", "HTML", "WebSocket"],
+    "api_contracts": ["/api/v1", "/ws", "/health", "/metrics"],
+    "health_endpoint": "/health",
+    "metrics_endpoint": "/metrics"
+  },
+  "guardrails": {
+    "hard_constraints": [
+      "no-direct-db-access-without-auth",
+      "all-pii-must-be-encrypted-at-rest",
+      "rate-limiting-enforced-on-all-endpoints"
+    ],
+    "escalation_rules": [
+      "alert-on-auth-failure-spike",
+      "alert-on-rbac-privilege-escalation-attempt"
+    ],
+    "circuit_breaker": {
+      "enabled": true,
+      "error_threshold": 50,
+      "timeout_ms": 30000,
+      "reset_interval_ms": 60000
+    },
+    "rate_limits": {
+      "requests_per_second": 100,
+      "burst": 200
+    }
+  },
+  "economic_model": {
+    "cost_per_operation_usd": 0.0001,
+    "estimated_monthly_cost_usd": 50.0,
+    "revenue_attribution": "platform-infrastructure",
+    "zero_net_cost_strategy": "Cloudflare Workers free tier + Supabase free tier for development; production costs offset by platform revenue",
+    "budget_limit_monthly_usd": 500.0,
+    "auto_throttle_at_percent": 80
+  },
+  "observability": {
+    "key_metrics": [
+      "auth_success_rate",
+      "api_latency_p95",
+      "worker_error_rate",
+      "active_sessions"
+    ],
+    "log_level": "INFO",
+    "trace_enabled": true,
+    "slo": {
+      "availability": 99.9,
+      "latency_p95_ms": 500,
+      "error_rate_percent": 1.0
+    }
+  },
+  "lifecycle": {
+    "versioning": "semver",
+    "deployment_tiers": ["dev", "staging", "prod"],
+    "decommissioning_criteria": [
+      "replaced-by-successor-platform",
+      "all-services-migrated"
+    ],
+    "last_review_date": "2026-03-13",
+    "next_review_date": "2026-06-13"
+  },
+  "tiga_gates": {
+    "gate_01_canon_alignment": "PASS",
+    "gate_02_classification": "PASS",
+    "gate_03_risk_dpia": "IN_PROGRESS",
+    "gate_04_data_governance": "IN_PROGRESS",
+    "gate_05_model_governance": "NOT_APPLICABLE",
+    "gate_06_security": "IN_PROGRESS",
+    "gate_07_human_oversight": "PASS",
+    "gate_08_economic": "PASS",
+    "gate_09_prod_readiness": "IN_PROGRESS",
+    "gate_10_monitoring": "IN_PROGRESS",
+    "gate_11_review": "IN_PROGRESS"
+  },
+  "daisy_chain": {
+    "external_law": ["GDPR-Art-5", "GDPR-Art-25", "EU-AI-Act-Art-9"],
+    "ff_controls": ["FF-001", "FF-002", "FF-003"],
+    "tef_policies": ["TEF-001", "TEF-002"],
+    "app_procedures": ["PROC-AUTH-001", "PROC-IAM-001", "PROC-RBAC-001"],
+    "evidence_hash": null
+  }
+}
