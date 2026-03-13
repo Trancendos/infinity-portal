@@ -147,7 +147,8 @@ jobs:
         run: |
           # Scan root package
           if [ -f package.json ]; then
-            npm install --ignore-scripts 2>/dev/null || true
+            npm install -g pnpm@8 2>/dev/null || true
+            pnpm install --no-frozen-lockfile 2>/dev/null || true
             license-checker --json --out /tmp/node-licenses.json 2>/dev/null || true
           fi
 
