@@ -171,8 +171,8 @@ importers:
         specifier: ^20.10.0
         version: 20.19.37
       '@types/uuid':
-        specifier: ^11.0.0
-        version: 11.0.0
+        specifier: ^9.0.8
+        version: 9.0.8
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.13.0
         version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.9.3)
@@ -452,6 +452,21 @@ importers:
         specifier: ^3.0.0
         version: 3.114.17(@cloudflare/workers-types@4.20260307.1)
 
+  workers/hive:
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20260307.1
+        version: 4.20260307.1
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@types/node@20.19.37)(tsx@4.21.0)
+      wrangler:
+        specifier: ^3.114.17
+        version: 3.114.17(@cloudflare/workers-types@4.20260307.1)
+
   workers/identity:
     dependencies:
       '@infinity-os/types':
@@ -478,6 +493,51 @@ importers:
         version: 4.0.18(@types/node@20.19.37)(tsx@4.21.0)
       wrangler:
         specifier: ^3.114.17
+        version: 3.114.17(@cloudflare/workers-types@4.20260307.1)
+
+  workers/infinity-one:
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20260307.1
+        version: 4.20260307.1
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@types/node@20.19.37)(tsx@4.21.0)
+      wrangler:
+        specifier: ^3.114.17
+        version: 3.114.17(@cloudflare/workers-types@4.20260307.1)
+
+  workers/lighthouse:
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20260307.1
+        version: 4.20260307.1
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@types/node@20.19.37)(tsx@4.21.0)
+      wrangler:
+        specifier: ^3.114.17
+        version: 3.114.17(@cloudflare/workers-types@4.20260307.1)
+
+  workers/monitoring-dashboard:
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20241230.0
+        version: 4.20260307.1
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@types/node@20.19.37)(tsx@4.21.0)
+      wrangler:
+        specifier: ^3.114.4
         version: 3.114.17(@cloudflare/workers-types@4.20260307.1)
 
   workers/orchestrator:
@@ -510,6 +570,21 @@ importers:
         version: 4.20260307.1
       typescript:
         specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@types/node@20.19.37)(tsx@4.21.0)
+      wrangler:
+        specifier: ^3.114.17
+        version: 3.114.17(@cloudflare/workers-types@4.20260307.1)
+
+  workers/void:
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20260307.1
+        version: 4.20260307.1
+      typescript:
+        specifier: ^5.9.3
         version: 5.9.3
       vitest:
         specifier: ^4.0.18
@@ -3355,11 +3430,8 @@ packages:
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
     dev: false
 
-  /@types/uuid@11.0.0:
-    resolution: {integrity: sha512-HVyk8nj2m+jcFRNazzqyVKiZezyhDKrGUA3jlEcg/nZ6Ms+qHwocba1Y/AaVaznJTAM9xpdFSh+ptbNrhOGvZA==}
-    deprecated: This is a stub types definition. uuid provides its own type definitions, so you do not need this installed.
-    dependencies:
-      uuid: 9.0.1
+  /@types/uuid@9.0.8:
+    resolution: {integrity: sha512-jg+97EGIcY9AGHJJRaaPVgetKDsrTgbRjQ5Msgjh/DQKEFl0DtyRr/VCOyD1T2R1MNeWPK/u7JoGhlDZnKBAfA==}
     dev: true
 
   /@types/ws@8.18.1:
@@ -8386,6 +8458,7 @@ packages:
   /uuid@9.0.1:
     resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
     hasBin: true
+    dev: false
 
   /v8-to-istanbul@9.3.0:
     resolution: {integrity: sha512-kiGUalWN+rgBJ/1OHZsBtU4rXZOfj/7rKQxULKlIzwzQSvMJUUNgPwJEEh7gU6xEVxC0ahoOBvN2YI8GH6FNgA==}

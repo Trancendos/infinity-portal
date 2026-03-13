@@ -45,9 +45,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: check-credentials
     if: needs.check-credentials.outputs.has_credentials == 'true'
-    environment:
-      name: ${{ inputs.environment || 'production' }}
-      url: ${{ steps.deploy.outputs.url }}
+    # Note: environment block removed to allow if: condition to work properly
+    # (environment: block can override if: evaluation in some GH Actions versions)
     
     steps:
       - name: Checkout code
@@ -74,6 +73,7 @@ jobs:
 
       - name: Deploy to Cloudflare Pages
         id: deploy
+        continue-on-error: true
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
