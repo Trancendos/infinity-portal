@@ -19,7 +19,7 @@ alembic==1.16.1
 
 # Auth — python-jose REPLACED with PyJWT (5 CVEs fixed: PYSEC-2024-232, PYSEC-2024-233, PYSEC-2017-28, GHSA-cjwg, GHSA-6c5p)
 # python-jose is abandoned and has multiple unpatched vulnerabilities
-PyJWT[crypto]==2.11.0
+PyJWT[crypto]==2.12.0
 bcrypt==4.3.0
 cryptography>=46.0.5
 

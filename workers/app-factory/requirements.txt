@@ -28,7 +28,7 @@ google-generativeai==0.8.5
 
 # Security & Auth — python-jose REPLACED with PyJWT (5 CVEs fixed)
 # python-jose is abandoned with multiple unpatched vulnerabilities
-PyJWT[crypto]==2.11.0
+PyJWT[crypto]==2.12.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.22
 cryptography>=46.0.5
